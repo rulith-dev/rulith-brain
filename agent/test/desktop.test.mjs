@@ -8,7 +8,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PLAIN } from '../memory-transport.mjs';
-import { APP, DESKTOP, PRODUCT, setupName, crateNotices } from '../tools/desktop.mjs';
+import { APP, DESKTOP, PRODUCT, setupName, crateNotices, resourceSource, installedNames, installFolder, INSTALLED, MAX_PATH,
+  PROFILE_NAME, STAGED_PATH_MAX } from '../tools/desktop.mjs';
 
 const AGENT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...p) => fs.readFileSync(path.join(...p), 'utf8');
@@ -102,4 +103,26 @@ test('the licence texts of the shell\'s crates: crates with the same text togeth
     assert.match(text, /Crates that ship no licence file[^\n]*:\n\nddd 1\.0\.0 \(Zlib\) - A\. Person\n/);
     assert.equal(text.split('MIT text').length, 2, 'one copy of a text');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('the setup installs the package below agent\\, where the shell looks for it, on paths Windows opens', () => {
+  // the shell starts <its folder>\agent\node\node.exe with agent\app\start.mjs
+  assert.equal(INSTALLED, 'agent');
+  assert.match(rust, /join\("agent"\)/);
+  // the staged folder goes to the Tauri CLI by its path from src-tauri (by its absolute path the CLI installed every
+  // file under the build machine's own folders: the first draft)
+  assert.equal(resourceSource(path.join(AGENT, 'dist', 'ds', 'agent')), '../../dist/ds/agent/');
+  assert.throws(() => resourceSource(APP), /--stage/);
+  if (process.platform === 'win32') assert.throws(() => resourceSource(`${APP[0] === 'Q' ? 'R' : 'Q'}:\\stage\\agent`), /--stage/);
+  // what the setup's compiler is told: every resource below agent\, or the build stops
+  const good = '  File /a "/oname=agent\\LICENSE.txt" "X:\\b\\LICENSE.txt"\n    File /a "/oname=agent\\app\\start.mjs" "X:\\b\\app\\start.mjs"\n  File "${MAINBINARYSRCPATH}"\n';
+  assert.deepEqual(installedNames(good), { names: ['agent\\LICENSE.txt', 'agent\\app\\start.mjs'], outside: [] });
+  // the first draft's script: the build machine's folders in the installed name
+  const first = '    File /a "/oname=/checkout\\project\\agent\\dist\\ds\\agent\\LICENSE.txt" "X:/checkout\\project\\agent\\dist\\ds\\agent\\LICENSE.txt"\n';
+  assert.equal(installedNames(first).outside.length, 1);
+  assert.equal(installedNames('  File /a "/oname=agent\\..\\x.txt" "X:\\b\\x.txt"\n').outside.length, 1);
+  // a file as deep as the build allows still has a path of MAX_PATH for the longest profile folder name
+  const deepest = `${installFolder('n'.repeat(PROFILE_NAME))}\\${INSTALLED}\\${'p'.repeat(STAGED_PATH_MAX)}`;
+  assert.equal(deepest.length, MAX_PATH);
+  assert.ok(STAGED_PATH_MAX >= 178, 'the package\'s deepest file today (the inspector\'s page descriptions) is 178 characters');
 });

@@ -18,9 +18,10 @@
 // Nothing is signed, published or uploaded.
 //
 // Needs Rust (cargo, the MSVC target) and the Tauri CLI: `npm i -D @tauri-apps/cli` in this folder, or --tauri <the
-// path of its tauri.js>. --stage: where the files are staged (default dist/ds/agent; a short path - the deepest file
-// of the package is ~180 characters below it, and the setup's compiler reads paths of 260 at most). --target-dir:
-// cargo's (default desktop/src-tauri/target). --offline: cargo takes every crate from its cache.
+// path of its tauri.js>. --stage: where the files are staged (default desktop/src-tauri/target/agent: the deepest
+// file of the package is ~180 characters below it, the setup's compiler reads paths of 260 at most, and it reads
+// each file by the stage's path as written from src-tauri - a stage beside src-tauri costs the "..\..\" on the
+// way). --target-dir: cargo's (default desktop/src-tauri/target). --offline: cargo takes every crate from its cache.
 import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -35,6 +36,35 @@ export const PRODUCT = 'Rulith Brain Agent';
 export const CRATE_TARGET = 'x86_64-pc-windows-msvc';
 /** The longest path the setup's compiler (and Explorer) reads. */
 export const MAX_PATH = 259;
+/** The folder the setup's files are installed in, below the install folder. */
+export const INSTALLED = 'agent';
+/** The longest name of a user's profile folder the setup still has to install under (Windows: 20 for a local
+ *  account; a work account's folder may add its domain). */
+export const PROFILE_NAME = 32;
+/** Where a per-user setup installs for a profile folder of that name. */
+export const installFolder = (profile) => `C:\\Users\\${profile}\\AppData\\Local\\${PRODUCT}`;
+/** How long a file's path below the staged folder may be: installed as <install folder>\agent\<path>, it has to
+ *  stay within MAX_PATH for a profile folder name of PROFILE_NAME characters (the setup's first draft put the files
+ *  50 characters deeper, and a file of the package then had no path Windows would open). */
+export const STAGED_PATH_MAX = MAX_PATH - (installFolder('x'.repeat(PROFILE_NAME)).length + 1 + INSTALLED.length + 1);
+
+/** The staged folder as the Tauri CLI is to be given a resource folder: relative to src-tauri, forward slashes, a
+ *  slash at its end. Not its absolute path: the CLI (2.8) drops the drive, the folder is then not found as the
+ *  start of its own files' paths, and every file is installed under <install folder>\<the whole path on the build
+ *  machine> instead of agent\ - the first draft's setup. */
+export function resourceSource(stage, app = APP) {
+  const rel = path.relative(app, stage);
+  if (!rel || path.isAbsolute(rel)) throw new Error(`--stage ${stage}: a folder on the drive of ${app}, not that folder itself`);
+  return `${rel.replace(/\\/g, '/')}/`;
+}
+
+/** Where the setup's compiler was told to install the resources: the names of the script's `File /a "/oname=..."`
+ *  lines (target\release\nsis\x64\installer.nsi, written by the Tauri CLI), and the ones not below agent\. */
+export function installedNames(nsi) {
+  const names = [...nsi.matchAll(/^\s*File \/a "\/oname=([^"]*)"/gm)].map((m) => m[1]);
+  const outside = names.filter((n) => !n.replace(/\//g, '\\').startsWith(`${INSTALLED}\\`) || /(^|\\)\.\.(\\|$)/.test(n.replace(/\//g, '\\')));
+  return { names, outside };
+}
 const LICENCE_FILE = /^(licen[cs]e|unlicense|copying|copyright|notice)([-._][\w.-]*)?$/i;
 
 /** The setup's file name. */
@@ -97,7 +127,7 @@ export function desktop(opts = {}) {
   if (process.platform !== 'win32') throw new Error('the setup is built on Windows');
   const cli = tauriCli(opts.tauri);
   const outDir = path.resolve(opts.out ?? path.join(AGENT, 'dist'));
-  const stage = path.resolve(opts.stage ?? path.join(AGENT, 'dist', 'ds', 'agent'));
+  const stage = path.resolve(opts.stage ?? path.join(APP, 'target', 'agent'));
   if (path.basename(stage) !== 'agent') throw new Error(`--stage ${stage}: a folder named agent (it is emptied)`);
   const parent = path.dirname(stage);
 
@@ -117,6 +147,13 @@ export function desktop(opts = {}) {
   const longest = files.reduce((a, b) => (b.length > a.length ? b : a), '');
   if (path.join(stage, longest).length > MAX_PATH)
     throw new Error(`a staged path is ${path.join(stage, longest).length} characters (${path.join(stage, longest)}): name a shorter --stage`);
+  if (longest.length > STAGED_PATH_MAX)
+    throw new Error(`${longest} is ${longest.length} characters: installed below ${installFolder('<a name of ' + PROFILE_NAME + ' characters>')}\\${INSTALLED} it would be longer than ${MAX_PATH} (at most ${STAGED_PATH_MAX} here)`);
+  const source = resourceSource(stage);
+  // (the compiler opens each file as <src-tauri>\<the stage as named to the CLI>\<file>, the ".." in it too)
+  const compiled = path.win32.join(APP, 'x').slice(0, -1) + source.split('/').join(path.win32.sep) + longest;
+  if (compiled.length > MAX_PATH)
+    throw new Error(`the setup's compiler would read ${compiled} (${compiled.length} characters, ${MAX_PATH} at most): name a --stage with a shorter path from ${APP}`);
 
   // 2. the shell's own third-party code
   const env = { ...process.env };
@@ -129,12 +166,22 @@ export function desktop(opts = {}) {
 
   // 3. the shell, the staged folder as its resources; the setup's licence page shows the agent's own licence (MIT)
   const conf = JSON.parse(fs.readFileSync(path.join(APP, 'tauri.conf.json'), 'utf8'));
-  const overrides = { version: numeric, bundle: { resources: { [`${stage.replace(/\\/g, '/')}/`]: 'agent/' }, licenseFile: path.join(stage, 'LICENSE.txt') } };
+  const overrides = { version: numeric, bundle: { resources: { [source]: `${INSTALLED}/` }, licenseFile: path.join(stage, 'LICENSE.txt') } };
+  const target = env.CARGO_TARGET_DIR ?? path.join(APP, 'target');
+  const script = path.join(target, 'release', 'nsis', 'x64', 'installer.nsi');
+  fs.rmSync(script, { force: true });
   const built = spawnSync(process.execPath, [cli, 'build', '--ci', '--config', JSON.stringify(overrides)], { cwd: APP, env, stdio: 'inherit' });
   if (built.status !== 0) throw new Error(`the Tauri build ended with ${built.status}`);
-  const target = env.CARGO_TARGET_DIR ?? path.join(APP, 'target');
   const made = path.join(target, 'release', 'bundle', 'nsis', `${conf.productName}_${numeric}_x64-setup.exe`);
   if (!fs.existsSync(made)) throw new Error(`no setup at ${made}`);
+  // what the setup really installs where: read from the script its compiler was given (a setup is not run here)
+  if (!fs.existsSync(script)) throw new Error(`no ${script}: what the setup installs cannot be checked`);
+  const { names, outside } = installedNames(fs.readFileSync(script, 'utf8'));
+  if (outside.length) throw new Error(`the setup would install ${outside.length} of ${names.length} files outside ${INSTALLED}\\ (the first: ${outside[0]})`);
+  const staged = walk(stage).length;
+  if (names.length !== staged) throw new Error(`the setup installs ${names.length} files below ${INSTALLED}\\, the staged folder has ${staged}`);
+  for (const must of ['node\\node.exe', 'app\\start.mjs', 'LICENSE.txt'])
+    if (!names.some((n) => n.replace(/\//g, '\\') === `${INSTALLED}\\${must}`)) throw new Error(`the setup does not install ${INSTALLED}\\${must}`);
 
   // 4. the setup, its checksum beside it
   fs.mkdirSync(outDir, { recursive: true });
@@ -142,7 +189,7 @@ export function desktop(opts = {}) {
   fs.copyFileSync(made, setup);
   const sum = crypto.createHash('sha256').update(fs.readFileSync(setup)).digest('hex');
   fs.writeFileSync(`${setup}.sha256`, `${sum} *${path.basename(setup)}\n`);
-  say(`${path.basename(setup)}: ${(fs.statSync(setup).size / 2 ** 20).toFixed(1)} MiB (${files.length + 1} files inside; installed, the longest path is ${longest.length + 'agent\\'.length} characters below the install folder)`);
+  say(`${path.basename(setup)}: ${(fs.statSync(setup).size / 2 ** 20).toFixed(1)} MiB (${names.length} files, all below ${INSTALLED}\\ by the setup's own script; installed, the longest path is ${longest.length + INSTALLED.length + 1} characters below the install folder: ${installFolder('<name>').length - '<name>'.length + 1 + INSTALLED.length + 1 + longest.length} + the profile folder's name, of ${MAX_PATH} at most)`);
   say(`SHA-256 ${sum}`);
   return { setup, sha256: sum, stage, version };
 }
