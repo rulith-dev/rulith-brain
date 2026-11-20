@@ -58,9 +58,6 @@ With none of these variables set, the agent follows the search service chosen in
 before the app's setting. The searches of the second service go to the address you gave. The result pages of search
 engines are not read.
 
-The plugin also holds a reader for Baidu's own search interface (with an API key of the user's). It is not offered:
-no search with a real key has been run with it yet.
-
 ## What it keeps where
 
 - The memory is Rulith Brain's: the agent keeps no copy of it.

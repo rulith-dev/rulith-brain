@@ -1,13 +1,13 @@
 // The agent's web search (rulith-brain-web as dsh's search provider: Wikipedia's own search without an account, or
-// the service the user chose - Baidu with their key, a SearXNG address) and the system's proxy handed to the agent's
-// process (system-proxy.mjs). No network: the fetch is the test's own.
+// a SearXNG address of the user's own) and the system's proxy handed to the agent's process (system-proxy.mjs). No
+// network: the fetch is the test's own.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { wikipediaSearch, baiduSearch, searxngSearch, searchConfig, appSearchSettings, SearchProvider, SERVICES, PROVIDER_ID, inject, apply } from '../rulith-brain-web/lib/index.js';
+import { wikipediaSearch, searxngSearch, searchConfig, appSearchSettings, SearchProvider, SERVICES, PROVIDER_ID, inject, apply } from '../rulith-brain-web/lib/index.js';
 import { parseProxyServer, noProxy, proxyEnv } from '../system-proxy.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -70,31 +70,6 @@ test('it is a search provider as dsh asks for one, registered with the web servi
   assert.ok(fs.readFileSync(path.join(HERE, '..', 'start.mjs'), 'utf8').includes("'rulith-brain-web'"));
 });
 
-test('Baidu is asked through its own interface with the user\'s key, and its refusals are said on', async () => {
-  const asked = [];
-  const f = async (url, init) => {
-    asked.push([url, init]);
-    return { ok: true, status: 200, json: async () => ({ request_id: 'r', references: [
-      { id: 1, title: '锐龙 AI Max+ 395 <em>实测</em>', url: 'https://example.cn/a', snippet: '内存带宽 &amp; 性能' },
-      { id: 2, title: 'no address', url: '' }, { id: 3, title: '视频', url: 'https://example.cn/v', content: 'only content' }] }) };
-  };
-  const r = await baiduSearch(' 锐龙  AI Max+ 395 ', { key: ' KEY-1 ', fetch: f, limit: 5 });
-  const [url, init] = asked[0];
-  assert.deepEqual([url, init.method, init.headers.Authorization], ['https://qianfan.baidubce.com/v2/ai_search/web_search', 'POST', 'Bearer KEY-1']);
-  assert.deepEqual(JSON.parse(init.body), { messages: [{ role: 'user', content: '锐龙 AI Max+ 395' }], search_source: 'baidu_search_v2', resource_type_filter: [{ type: 'web', top_k: 5 }] });
-  assert.deepEqual(r.sources, [{ url: 'https://example.cn/a', title: '锐龙 AI Max+ 395 实测', snippet: '内存带宽 & 性能' }, { url: 'https://example.cn/v', title: '视频', snippet: 'only content' }]);
-  assert.ok(!JSON.stringify(r).includes('KEY-1'));
-  // no key: said before anything is asked, with where it is entered
-  await assert.rejects(baiduSearch('x', { key: '', fetch: async () => { throw new Error('never asked'); } }), (e) => e.code === 'WEB_PROVIDER_ERROR' && /needs your API key/.test(e.message));
-  const says = (status, body) => baiduSearch('x', { key: 'K', fetch: async () => ({ ok: status < 300, status, json: async () => { if (body === undefined) throw new Error('not JSON'); return body; } }) });
-  await assert.rejects(says(200, { requestId: 'r', code: 216003, message: 'Authentication error' }), /^Error: Baidu: Authentication error \(216003\)$/);
-  await assert.rejects(says(429, { code: 'QUOTA', message: 'free quota used up' }), /Baidu: free quota used up \(QUOTA\)/);
-  await assert.rejects(says(502), /Baidu: HTTP 502/);
-  await assert.rejects(says(401, { code: 216003, message: '[Code: InvalidHTTPAuthHeader; Message: Fail to parse apikey authorization]' }), /Baidu did not accept the API key/);
-  await assert.rejects(baiduSearch('x', { key: 'K', fetch: async () => { throw Object.assign(new Error('fetch failed'), { cause: { code: 'ENOTFOUND' } }); } }), /Baidu could not be reached: ENOTFOUND/);
-  assert.deepEqual((await says(200, { references: [] })).sources, []);
-});
-
 test('a SearXNG instance of the user\'s own is asked by its address, in JSON', async () => {
   const asked = [];
   const f = async (url) => { asked.push(url); return { ok: true, status: 200, json: async () => ({ results: [
@@ -112,17 +87,13 @@ test('a SearXNG instance of the user\'s own is asked by its address, in JSON', a
 });
 
 test('which search: the environment first, then what is set in the Rulith Brain app, then Wikipedia', () => {
-  // (Baidu's search is built and not offered yet: no search with a real key was ever run)
   assert.deepEqual(SERVICES, ['wikipedia', 'searxng']);
-  assert.deepEqual(searchConfig({}, {}), { service: 'wikipedia', baiduKey: '', searxngUrl: '' });
-  const app = { provider: 'searxng', baidu_key: 'APP-KEY', searxng_url: 'http://127.0.0.1:8080' };
-  assert.deepEqual(searchConfig({}, app), { service: 'searxng', baiduKey: 'APP-KEY', searxngUrl: 'http://127.0.0.1:8080' });
-  assert.deepEqual(searchConfig({ RULITH_BRAIN_SEARCH: ' Wikipedia ', RULITH_BRAIN_SEARXNG_URL: 'http://mine:1', RULITH_BRAIN_BAIDU_KEY: 'ENV-KEY' }, app),
-    { service: 'wikipedia', baiduKey: 'ENV-KEY', searxngUrl: 'http://mine:1' });
-  // a name that is no service - or one not offered - is not followed: the app's, else Wikipedia
+  assert.deepEqual(searchConfig({}, {}), { service: 'wikipedia', searxngUrl: '' });
+  const app = { provider: 'searxng', searxng_url: 'http://127.0.0.1:8080' };
+  assert.deepEqual(searchConfig({}, app), { service: 'searxng', searxngUrl: 'http://127.0.0.1:8080' });
+  assert.deepEqual(searchConfig({ RULITH_BRAIN_SEARCH: ' Wikipedia ', RULITH_BRAIN_SEARXNG_URL: 'http://mine:1' }, app), { service: 'wikipedia', searxngUrl: 'http://mine:1' });
+  // a name that is no service is not followed: the app's, else Wikipedia
   assert.equal(searchConfig({ RULITH_BRAIN_SEARCH: 'google' }, app).service, 'searxng');
-  assert.equal(searchConfig({ RULITH_BRAIN_SEARCH: 'baidu' }, {}).service, 'wikipedia');
-  assert.equal(searchConfig({}, { provider: 'baidu', baidu_key: 'K' }).service, 'wikipedia');
   assert.equal(searchConfig({ RULITH_BRAIN_SEARCH: 'google' }, { provider: 'bing' }).service, 'wikipedia');
   // the app's settings file, read only: its brain_web entry, {} when there is none
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'rb-search-'));
@@ -143,17 +114,14 @@ test('the provider asks the service that is set at the time of each search', asy
   const asked = [];
   const f = async (url, init) => {
     asked.push(new URL(url).hostname);
-    if (/baidubce/.test(url)) return { ok: true, status: 200, json: async () => ({ references: [{ title: 'B', url: 'https://b.example' }] }) };
     if (/127\.0\.0\.1/.test(url)) return { ok: true, status: 200, json: async () => ({ results: [{ title: 'S', url: 'https://s.example' }] }) };
     return answer(HIT);
   };
   const p = new SearchProvider({ fetch: f, config: () => set });
   assert.equal((await p.search({ query: 'Zen 5' })).sources[0].title, 'Zen 5');
-  set = { service: 'baidu', baiduKey: 'K' };
-  assert.equal((await p.search({ query: 'Zen 5' })).sources[0].title, 'B');
   set = { service: 'searxng', searxngUrl: 'http://127.0.0.1:8080' };
   assert.equal((await p.search({ query: 'Zen 5', maxResults: 3 })).sources[0].title, 'S');
-  assert.deepEqual(asked, ['en.wikipedia.org', 'qianfan.baidubce.com', '127.0.0.1']);
+  assert.deepEqual(asked, ['en.wikipedia.org', '127.0.0.1']);
 });
 
 test('the system\'s proxy: one proxy for everything, one per protocol, none', () => {

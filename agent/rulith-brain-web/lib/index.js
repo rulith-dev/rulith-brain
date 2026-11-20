@@ -7,10 +7,6 @@
 // The address likewise: RULITH_BRAIN_SEARXNG_URL, else the app's. The search engines' result pages are not read:
 // they answer a program off topic or with a verification page (measured 2026-11-19), and they are not theirs to give.
 //
-// Not offered yet: Baidu's own search interface (Qianfan, "Baidu Search") with an API key of the user's. baiduSearch
-// below asks it as its documentation says, and its refusal of an unknown key was read; no search with a real key was
-// ever run, so it is not among SERVICES until one has been.
-//
 // Reading a page (web_fetch) is dsh's own and needs nothing. Both go through the system's proxy when the launcher
 // found one (system-proxy.mjs).
 import fs from 'node:fs';
@@ -22,7 +18,6 @@ export const inject = ['web'];
 /** The id this provider registers under (the profile's web entry selects it: searchProvider). */
 export const PROVIDER_ID = 'rulith-search';
 export const SERVICES = Object.freeze(['wikipedia', 'searxng']);
-const BAIDU = 'https://qianfan.baidubce.com/v2/ai_search/web_search';
 
 const USER_AGENT = 'Mozilla/5.0 (compatible; RulithBrain/1.0; +https://rulith.ai/brain.html)';
 const MAX_RESULTS = 8;
@@ -85,35 +80,6 @@ export async function wikipediaSearch(query, { fetch: f = globalThis.fetch, sign
 }
 
 /**
- * What Baidu's search interface lists for the words, asked with the user's own API key. Not among SERVICES yet.
- * @throws an Error with code WEB_PROVIDER_ERROR: no key, Baidu's refusal in its own words (a bad key, a spent
- *   allowance), or no answer.
- */
-export async function baiduSearch(query, { key, fetch: f = globalThis.fetch, signal, limit = MAX_RESULTS } = {}) {
-  const q = words(query);
-  if (!String(key ?? '').trim()) throw failure('the Baidu search needs your API key: enter it in Rulith Brain (Settings, Web search) or set RULITH_BRAIN_BAIDU_KEY');
-  let r, j = null;
-  try {
-    r = await f(BAIDU, { method: 'POST', signal,
-      headers: { 'User-Agent': USER_AGENT, Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${String(key).trim()}` },
-      body: JSON.stringify({ messages: [{ role: 'user', content: q }], search_source: 'baidu_search_v2', resource_type_filter: [{ type: 'web', top_k: count(limit) }] }) });
-    try { j = await r.json(); } catch { j = null; }
-  } catch (error) {
-    if (signal?.aborted) throw error;
-    throw failure(`Baidu could not be reached: ${reached(error)}`);
-  }
-  if (!Array.isArray(j?.references)) {
-    // (as Baidu answers a key it does not know, 2026-11-20: HTTP 401)
-    if (r.status === 401) throw failure('Baidu did not accept the API key: check it in Rulith Brain (Settings, Web search) or in RULITH_BRAIN_BAIDU_KEY');
-    throw failure(`Baidu: ${j?.message || j?.code ? `${j.message ?? 'refused'} (${j.code ?? r.status})` : `HTTP ${r.status}`}`.slice(0, 240));
-  }
-  const sources = j.references.map((x) => source(x?.title, x?.url, x?.snippet || x?.content)).filter(Boolean);
-  return { sources, truncated: false, content: sources.length
-    ? 'These are results of Baidu\'s search. Read one with web_fetch before relying on it.'
-    : 'Baidu found nothing for these words. Try other words, or read a page by its address with web_fetch.' };
-}
-
-/**
  * What the user's SearXNG instance lists for the words.
  * @param base - the instance's address ("http://127.0.0.1:8080").
  * @throws an Error with code WEB_PROVIDER_ERROR: no address, an instance that does not answer in JSON, or no answer.
@@ -149,14 +115,13 @@ export function appSearchSettings(env = process.env) {
 }
 
 /**
- * Which search to ask: { service, baiduKey, searxngUrl }. The environment goes first (RULITH_BRAIN_SEARCH,
- * RULITH_BRAIN_BAIDU_KEY, RULITH_BRAIN_SEARXNG_URL), then what is set in the Rulith Brain app, then Wikipedia.
- * A service that is not one of SERVICES is not followed.
+ * Which search to ask: { service, searxngUrl }. The environment goes first (RULITH_BRAIN_SEARCH,
+ * RULITH_BRAIN_SEARXNG_URL), then what is set in the Rulith Brain app, then Wikipedia. A service that is not one of
+ * SERVICES is not followed.
  */
 export function searchConfig(env = process.env, app = appSearchSettings(env)) {
   const named = [String(env.RULITH_BRAIN_SEARCH ?? '').trim().toLowerCase(), String(app.provider ?? '')].find((x) => SERVICES.includes(x));
-  return { service: named ?? 'wikipedia', baiduKey: String(env.RULITH_BRAIN_BAIDU_KEY || app.baidu_key || '').trim(),
-    searxngUrl: String(env.RULITH_BRAIN_SEARXNG_URL || app.searxng_url || '').trim() };
+  return { service: named ?? 'wikipedia', searxngUrl: String(env.RULITH_BRAIN_SEARXNG_URL || app.searxng_url || '').trim() };
 }
 
 /** dsh's search provider: { id, available(), search({ query, maxResults }, signal) }. Asked anew at every search,
@@ -171,7 +136,6 @@ export class SearchProvider {
   search(request, signal) {
     const c = this.config();
     const opts = { fetch: this.fetch, signal, limit: request?.maxResults };
-    if (c.service === 'baidu') return baiduSearch(request?.query, { ...opts, key: c.baiduKey });
     if (c.service === 'searxng') return searxngSearch(request?.query, { ...opts, base: c.searxngUrl });
     return wikipediaSearch(request?.query, opts);
   }
