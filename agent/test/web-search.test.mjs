@@ -112,14 +112,17 @@ test('a SearXNG instance of the user\'s own is asked by its address, in JSON', a
 });
 
 test('which search: the environment first, then what is set in the Rulith Brain app, then Wikipedia', () => {
-  assert.deepEqual(SERVICES, ['wikipedia', 'baidu', 'searxng']);
+  // (Baidu's search is built and not offered yet: no search with a real key was ever run)
+  assert.deepEqual(SERVICES, ['wikipedia', 'searxng']);
   assert.deepEqual(searchConfig({}, {}), { service: 'wikipedia', baiduKey: '', searxngUrl: '' });
-  const app = { provider: 'baidu', baidu_key: 'APP-KEY', searxng_url: 'http://127.0.0.1:8080' };
-  assert.deepEqual(searchConfig({}, app), { service: 'baidu', baiduKey: 'APP-KEY', searxngUrl: 'http://127.0.0.1:8080' });
-  assert.deepEqual(searchConfig({ RULITH_BRAIN_SEARCH: ' SearXNG ', RULITH_BRAIN_SEARXNG_URL: 'http://mine:1', RULITH_BRAIN_BAIDU_KEY: 'ENV-KEY' }, app),
-    { service: 'searxng', baiduKey: 'ENV-KEY', searxngUrl: 'http://mine:1' });
-  // a name that is no service is not followed: the app's, else Wikipedia
-  assert.equal(searchConfig({ RULITH_BRAIN_SEARCH: 'google' }, app).service, 'baidu');
+  const app = { provider: 'searxng', baidu_key: 'APP-KEY', searxng_url: 'http://127.0.0.1:8080' };
+  assert.deepEqual(searchConfig({}, app), { service: 'searxng', baiduKey: 'APP-KEY', searxngUrl: 'http://127.0.0.1:8080' });
+  assert.deepEqual(searchConfig({ RULITH_BRAIN_SEARCH: ' Wikipedia ', RULITH_BRAIN_SEARXNG_URL: 'http://mine:1', RULITH_BRAIN_BAIDU_KEY: 'ENV-KEY' }, app),
+    { service: 'wikipedia', baiduKey: 'ENV-KEY', searxngUrl: 'http://mine:1' });
+  // a name that is no service - or one not offered - is not followed: the app's, else Wikipedia
+  assert.equal(searchConfig({ RULITH_BRAIN_SEARCH: 'google' }, app).service, 'searxng');
+  assert.equal(searchConfig({ RULITH_BRAIN_SEARCH: 'baidu' }, {}).service, 'wikipedia');
+  assert.equal(searchConfig({}, { provider: 'baidu', baidu_key: 'K' }).service, 'wikipedia');
   assert.equal(searchConfig({ RULITH_BRAIN_SEARCH: 'google' }, { provider: 'bing' }).service, 'wikipedia');
   // the app's settings file, read only: its brain_web entry, {} when there is none
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'rb-search-'));
@@ -128,7 +131,7 @@ test('which search: the environment first, then what is set in the Rulith Brain 
     fs.mkdirSync(path.join(home, 'config'));
     fs.writeFileSync(path.join(home, 'config', 'settings.json'), JSON.stringify({ roots: [], brain_web: app }));
     assert.deepEqual(appSearchSettings({ RULITH_BRAIN_APP_HOME: home }), app);
-    assert.equal(searchConfig({ RULITH_BRAIN_APP_HOME: home }).service, 'baidu');
+    assert.equal(searchConfig({ RULITH_BRAIN_APP_HOME: home }).service, 'searxng');
     fs.writeFileSync(path.join(home, 'config', 'settings.json'), '{ not json');
     assert.deepEqual(appSearchSettings({ RULITH_BRAIN_APP_HOME: home }), {});
     assert.deepEqual(appSearchSettings({}), {});

@@ -22,8 +22,7 @@ open-source companion agent ([agent/](agent/), MIT). Product page, prices and pu
     your tasks are learned into the same memory.
   - *Conversations*: what you say in **Chat** is learned while **Remember conversations** is on.
   - *The web, in Chat*: with the **Web** switch on, Brain may search and read web pages for an answer, and keeps what it
-    reads. The search is Wikipedia's (no account, no key) or the service you choose under **Settings**: Baidu with an
-    API key of your own, or a search address of your own.
+    reads. The search is Wikipedia's (no account, no key) or, chosen under **Settings**, a search address of your own.
 - **Names its sources.** Under an answer, **Sources** lists the documents it drew on.
 - **Makes room by itself.** When the memory is full, it forgets whole documents, the least used first.
 - **Local only.** The model, the memory and your documents stay on your computer. The memory is a folder on your disk:
@@ -45,7 +44,7 @@ open-source companion agent ([agent/](agent/), MIT). Product page, prices and pu
 The companion agent: it works on tasks you give it, opens in your browser, and uses the same memory. Download
 `rulith-brain-agent-<version>.zip` from [Releases](../../releases), unpack it, and run `start.cmd` while Rulith Brain
 is open (Node.js is included). Its switch **Learn from research** is on by default. It searches Wikipedia without an
-account - or with the search service you choose - and reads any web page by its address.
+account - or a search address of your own - and reads any web page by its address.
 
 The agent is open source under the MIT licence: its source, and how to run it from source, are in [agent/](agent/).
 A preview of it is on the Releases page already; it needs Rulith Brain, whose first release is being prepared.

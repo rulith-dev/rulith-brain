@@ -37,9 +37,8 @@
   disabled: true
 
 # web_search asks the agent's own search provider (rulith-brain-web, loaded below) instead of dsh's, which needs a paid
-# API key of the user's: Wikipedia's own search without an account or a key, or the service the user chose - Baidu with
-# a key of their own, or a SearXNG address (RULITH_BRAIN_SEARCH, else what is set in the Rulith Brain app). web_fetch
-# stays dsh's own. (To use dsh's search with a key of your own, name it here: searchProvider: deepseek-official.)
+# API key of the user's: Wikipedia's own search without an account or a key, or the service the user chose - a SearXNG
+# address of their own (RULITH_BRAIN_SEARCH, else what is set in the Rulith Brain app). web_fetch stays dsh's own. (To use dsh's search with a key of your own, name it here: searchProvider: deepseek-official.)
 # A patch replaces the entry's whole config: both are restated.
 - id: web
   config:

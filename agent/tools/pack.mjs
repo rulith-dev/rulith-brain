@@ -242,9 +242,8 @@ forget a conversation.
 Web search
 ----------
 The agent searches Wikipedia: free, with no account and no key. Any web page is read by its address.
-To search with Baidu (its own search interface, with an API key of your own) or with a SearXNG address of your own,
-choose it in the Rulith Brain app under Settings, Web search: the agent follows what is set there.
-Without the app's setting: set RULITH_BRAIN_SEARCH to wikipedia, baidu or searxng, and RULITH_BRAIN_BAIDU_KEY or
+To search with a SearXNG address of your own, choose it in the Rulith Brain app under Settings, Web search: the
+agent follows what is set there. Without the app's setting: set RULITH_BRAIN_SEARCH to wikipedia or searxng, and
 RULITH_BRAIN_SEARXNG_URL with it.
 
 What it keeps where

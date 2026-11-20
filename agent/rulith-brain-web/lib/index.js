@@ -1,13 +1,15 @@
 // Rulith Brain Agent's web search: dsh's web_search tool asks the search provider the profile selects, and the one dsh
-// ships needs a paid API key of the user's. This one asks the search service the user chose - the same three the
-// Rulith Brain app's chat offers (tools/manager.py brain_web_search):
+// ships needs a paid API key of the user's. This one asks the search service the user chose - the same the Rulith
+// Brain app's chat offers (tools/manager.py brain_web_search):
 //   wikipedia  Wikipedia's own search interface: free, no account, no key (the default)
-//   baidu      Baidu's own search interface (Qianfan, "Baidu Search"), with an API key of the user's
 //   searxng    a SearXNG instance of the user's own, by its address (its JSON format switched on)
 // Which one: RULITH_BRAIN_SEARCH; unset, the one set in the Rulith Brain app on this PC (its Settings); else Wikipedia.
-// The key and the address likewise: RULITH_BRAIN_BAIDU_KEY / RULITH_BRAIN_SEARXNG_URL, else the app's. The search
-// engines' result pages are not read: they answer a program off topic or with a verification page (measured
-// 2026-11-19), and they are not theirs to give.
+// The address likewise: RULITH_BRAIN_SEARXNG_URL, else the app's. The search engines' result pages are not read:
+// they answer a program off topic or with a verification page (measured 2026-11-19), and they are not theirs to give.
+//
+// Not offered yet: Baidu's own search interface (Qianfan, "Baidu Search") with an API key of the user's. baiduSearch
+// below asks it as its documentation says, and its refusal of an unknown key was read; no search with a real key was
+// ever run, so it is not among SERVICES until one has been.
 //
 // Reading a page (web_fetch) is dsh's own and needs nothing. Both go through the system's proxy when the launcher
 // found one (system-proxy.mjs).
@@ -19,7 +21,7 @@ export const name = 'rulith-brain-web';
 export const inject = ['web'];
 /** The id this provider registers under (the profile's web entry selects it: searchProvider). */
 export const PROVIDER_ID = 'rulith-search';
-export const SERVICES = Object.freeze(['wikipedia', 'baidu', 'searxng']);
+export const SERVICES = Object.freeze(['wikipedia', 'searxng']);
 const BAIDU = 'https://qianfan.baidubce.com/v2/ai_search/web_search';
 
 const USER_AGENT = 'Mozilla/5.0 (compatible; RulithBrain/1.0; +https://rulith.ai/brain.html)';
@@ -83,7 +85,7 @@ export async function wikipediaSearch(query, { fetch: f = globalThis.fetch, sign
 }
 
 /**
- * What Baidu's search interface lists for the words, asked with the user's own API key.
+ * What Baidu's search interface lists for the words, asked with the user's own API key. Not among SERVICES yet.
  * @throws an Error with code WEB_PROVIDER_ERROR: no key, Baidu's refusal in its own words (a bad key, a spent
  *   allowance), or no answer.
  */

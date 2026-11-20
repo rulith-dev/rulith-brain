@@ -20,8 +20,7 @@ small forwarder that sends each turn to the memory instead of the whole conversa
   are learned into the memory, so they are there the next time without the web.
 - **Searches without an account.** Its web search is Wikipedia's own search interface: no API key, nothing to sign up
   for. Any page of the web is read by its address. Behind a proxy that Windows is set to use, the agent follows it.
-- **Or with the search service you choose.** Baidu's own search interface with an API key of your own, or a SearXNG
-  instance by its address: see [Web search](#web-search).
+- **Or with a search address of your own.** A SearXNG instance by its address: see [Web search](#web-search).
 
 ## Get it
 
@@ -52,21 +51,22 @@ While Brain is not running yet, or is still loading its model, the agent says so
 | `RULITH_BRAIN_SEARCH` | | needs |
 |---|---|---|
 | `wikipedia` (the default) | Wikipedia's own search interface; a query in Chinese asks the Chinese edition first | nothing |
-| `baidu` | Baidu's own search interface (Qianfan, "Baidu Search"); Baidu gives a free allowance and bills beyond it to your account | an API key of your own: `RULITH_BRAIN_BAIDU_KEY` |
 | `searxng` | a SearXNG instance that you run, or trust, with its JSON format switched on | its address: `RULITH_BRAIN_SEARXNG_URL` |
 
 With none of these variables set, the agent follows the search service chosen in the Rulith Brain app on the same PC
 (Settings, Web search): it reads the app's settings file at each search and writes nothing to it. A variable goes
-before the app's setting. The key is sent to Baidu only; the searches of the third service go to the address you gave.
-The result pages of search engines are not read.
+before the app's setting. The searches of the second service go to the address you gave. The result pages of search
+engines are not read.
+
+The plugin also holds a reader for Baidu's own search interface (with an API key of the user's). It is not offered:
+no search with a real key has been run with it yet.
 
 ## What it keeps where
 
 - The memory is Rulith Brain's: the agent keeps no copy of it.
 - The agent's own files: `~/.rulith-brain-agent`, or `--home`.
 - The page and the forwarder listen on this computer only (127.0.0.1); the address printed at start carries the page's key.
-- No licence key, password or API key is stored in its files. A search service's API key is read from the environment
-  or from the Rulith Brain app's settings when a search is made.
+- No licence key, password or API key is stored in its files.
 
 ## How it is made
 
@@ -77,7 +77,7 @@ The result pages of search engines are not read.
 | `brain-core.mjs` | the turn logic, with no Node imports: a chat request cut down to one turn of the memory |
 | `research-learn.mjs` | the pages read on the web, cleaned and sent to the memory to be learned |
 | `system-proxy.mjs` | Windows' proxy setting, handed to the agent's process |
-| `rulith-brain-web/` | the web search (Wikipedia, Baidu, a SearXNG address) as a search provider for dsh |
+| `rulith-brain-web/` | the web search (Wikipedia, a SearXNG address) as a search provider for dsh |
 | `rulith-brain-ui/` | the page's name and mark |
 | `brain-panel.html` | the agent's own page: whether Brain runs, the switches, what the last answer drew on |
 | `memory-agent.cordis.yml` | the changes to dsh's web profile |
