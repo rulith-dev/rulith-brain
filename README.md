@@ -57,7 +57,7 @@ A preview of it is on the Releases page already; it needs Rulith Brain, whose fi
 
 ## Licence
 
-A 30-day trial with everything included, then a one-time purchase per device, sized by how much the memory holds
+A 30-day trial (a memory of up to 10M tokens), then a one-time purchase per device, sized by how much the memory holds
 (10M, 50M, 200M or unlimited tokens). Prices, the sizes on sale, refunds, moving to new hardware and larger sizes:
 [rulith.ai/brain.html](https://rulith.ai/brain.html). The full terms (the end user licence agreement) are published
 here with the first release. Rulith Brain Agent is not under them: it is open source, [MIT](agent/LICENSE).
