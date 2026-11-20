@@ -239,6 +239,14 @@ Options (after the address):
 "Remember conversations" is set in the Rulith Brain app (Settings); the agent itself never asks the memory to
 forget a conversation.
 
+Web search
+----------
+The agent searches Wikipedia: free, with no account and no key. Any web page is read by its address.
+To search with Baidu (its own search interface, with an API key of your own) or with a SearXNG address of your own,
+choose it in the Rulith Brain app under Settings, Web search: the agent follows what is set there.
+Without the app's setting: set RULITH_BRAIN_SEARCH to wikipedia, baidu or searxng, and RULITH_BRAIN_BAIDU_KEY or
+RULITH_BRAIN_SEARXNG_URL with it.
+
 What it keeps where
 -------------------
 - The memory is the server's: the agent keeps no copy of it.

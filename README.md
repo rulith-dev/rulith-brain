@@ -15,16 +15,20 @@ open-source companion agent ([agent/](agent/), MIT). Product page, prices and pu
 
 - **Remembers across conversations.** What you discussed before stays in the memory, and a new conversation can draw
   on it. With **Remember conversations** off (Settings), each new conversation starts without the earlier ones.
-- **Learns in three ways.**
+- **Learns in four ways.**
   - *A folder*: in **Learn**, choose a folder of notes and documents; Brain reads it and keeps up as files are added or
     changed. Text and Markdown files are read; PDF and Word documents are not read yet.
   - *Research with Rulith Brain Agent*: with **Learn from research** on, the web pages the agent reads while it works on
     your tasks are learned into the same memory.
   - *Conversations*: what you say in **Chat** is learned while **Remember conversations** is on.
+  - *The web, in Chat*: with the **Web** switch on, Brain may search and read web pages for an answer, and keeps what it
+    reads. The search is Wikipedia's (no account, no key) or the service you choose under **Settings**: Baidu with an
+    API key of your own, or a search address of your own.
 - **Names its sources.** Under an answer, **Sources** lists the documents it drew on.
 - **Makes room by itself.** When the memory is full, it forgets whole documents, the least used first.
 - **Local only.** The model, the memory and your documents stay on your computer. The memory is a folder on your disk:
-  back it up, move it, delete it. No telemetry.
+  back it up, move it, delete it. No telemetry. Chat's **Web** switch is off until you turn it on; with it on, the
+  words it searches for go to the search service and the pages it reads are fetched from their sites.
 
 ## Getting started
 
@@ -41,7 +45,7 @@ open-source companion agent ([agent/](agent/), MIT). Product page, prices and pu
 The companion agent: it works on tasks you give it, opens in your browser, and uses the same memory. Download
 `rulith-brain-agent-<version>.zip` from [Releases](../../releases), unpack it, and run `start.cmd` while Rulith Brain
 is open (Node.js is included). Its switch **Learn from research** is on by default. It searches Wikipedia without an
-account and reads any web page by its address.
+account - or with the search service you choose - and reads any web page by its address.
 
 The agent is open source under the MIT licence: its source, and how to run it from source, are in [agent/](agent/).
 A preview of it is on the Releases page already; it needs Rulith Brain, whose first release is being prepared.

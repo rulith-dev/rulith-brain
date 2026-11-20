@@ -1,11 +1,13 @@
-// The agent's web search without an account (rulith-brain-web: Wikipedia's own search as dsh's search provider) and
-// the system's proxy handed to the agent's process (system-proxy.mjs). No network: the fetch is the test's own.
+// The agent's web search (rulith-brain-web as dsh's search provider: Wikipedia's own search without an account, or
+// the service the user chose - Baidu with their key, a SearXNG address) and the system's proxy handed to the agent's
+// process (system-proxy.mjs). No network: the fetch is the test's own.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { wikipediaSearch, WikipediaSearchProvider, PROVIDER_ID, inject, apply } from '../rulith-brain-web/lib/index.js';
+import { wikipediaSearch, baiduSearch, searxngSearch, searchConfig, appSearchSettings, SearchProvider, SERVICES, PROVIDER_ID, inject, apply } from '../rulith-brain-web/lib/index.js';
 import { parseProxyServer, noProxy, proxyEnv } from '../system-proxy.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -53,8 +55,9 @@ test('nothing found is an answer; a site that does not answer is an error the mo
 });
 
 test('it is a search provider as dsh asks for one, registered with the web service and selected by the profile', async () => {
-  const p = new WikipediaSearchProvider({ fetch: async () => answer(HIT) });
+  const p = new SearchProvider({ fetch: async () => answer(HIT), config: () => ({ service: 'wikipedia' }) });
   assert.deepEqual([p.id, p.available()], [PROVIDER_ID, true]);
+  assert.equal(PROVIDER_ID, 'rulith-search');
   assert.equal((await p.search({ query: 'Zen 5', maxResults: 3 })).sources.length, 2);
   const registered = [];
   apply({ web: { registerSearchProvider: (x) => registered.push(x.id) } });
@@ -65,6 +68,89 @@ test('it is a search provider as dsh asks for one, registered with the web servi
   assert.ok(profile.includes('    - id: rulith-brain-web\n      name: rulith-brain-web\n'));
   assert.ok(profile.includes(`\n- id: web\n  config:\n    searchProvider: ${PROVIDER_ID}\n    fetchProvider: http\n`));
   assert.ok(fs.readFileSync(path.join(HERE, '..', 'start.mjs'), 'utf8').includes("'rulith-brain-web'"));
+});
+
+test('Baidu is asked through its own interface with the user\'s key, and its refusals are said on', async () => {
+  const asked = [];
+  const f = async (url, init) => {
+    asked.push([url, init]);
+    return { ok: true, status: 200, json: async () => ({ request_id: 'r', references: [
+      { id: 1, title: '锐龙 AI Max+ 395 <em>实测</em>', url: 'https://example.cn/a', snippet: '内存带宽 &amp; 性能' },
+      { id: 2, title: 'no address', url: '' }, { id: 3, title: '视频', url: 'https://example.cn/v', content: 'only content' }] }) };
+  };
+  const r = await baiduSearch(' 锐龙  AI Max+ 395 ', { key: ' KEY-1 ', fetch: f, limit: 5 });
+  const [url, init] = asked[0];
+  assert.deepEqual([url, init.method, init.headers.Authorization], ['https://qianfan.baidubce.com/v2/ai_search/web_search', 'POST', 'Bearer KEY-1']);
+  assert.deepEqual(JSON.parse(init.body), { messages: [{ role: 'user', content: '锐龙 AI Max+ 395' }], search_source: 'baidu_search_v2', resource_type_filter: [{ type: 'web', top_k: 5 }] });
+  assert.deepEqual(r.sources, [{ url: 'https://example.cn/a', title: '锐龙 AI Max+ 395 实测', snippet: '内存带宽 & 性能' }, { url: 'https://example.cn/v', title: '视频', snippet: 'only content' }]);
+  assert.ok(!JSON.stringify(r).includes('KEY-1'));
+  // no key: said before anything is asked, with where it is entered
+  await assert.rejects(baiduSearch('x', { key: '', fetch: async () => { throw new Error('never asked'); } }), (e) => e.code === 'WEB_PROVIDER_ERROR' && /needs your API key/.test(e.message));
+  const says = (status, body) => baiduSearch('x', { key: 'K', fetch: async () => ({ ok: status < 300, status, json: async () => { if (body === undefined) throw new Error('not JSON'); return body; } }) });
+  await assert.rejects(says(200, { requestId: 'r', code: 216003, message: 'Authentication error' }), /^Error: Baidu: Authentication error \(216003\)$/);
+  await assert.rejects(says(429, { code: 'QUOTA', message: 'free quota used up' }), /Baidu: free quota used up \(QUOTA\)/);
+  await assert.rejects(says(502), /Baidu: HTTP 502/);
+  await assert.rejects(says(401, { code: 216003, message: '[Code: InvalidHTTPAuthHeader; Message: Fail to parse apikey authorization]' }), /Baidu did not accept the API key/);
+  await assert.rejects(baiduSearch('x', { key: 'K', fetch: async () => { throw Object.assign(new Error('fetch failed'), { cause: { code: 'ENOTFOUND' } }); } }), /Baidu could not be reached: ENOTFOUND/);
+  assert.deepEqual((await says(200, { references: [] })).sources, []);
+});
+
+test('a SearXNG instance of the user\'s own is asked by its address, in JSON', async () => {
+  const asked = [];
+  const f = async (url) => { asked.push(url); return { ok: true, status: 200, json: async () => ({ results: [
+    { title: 'Zen 5', url: 'https://en.wikipedia.org/wiki/Zen_5', content: 'a core' }, { title: '', url: 'https://x.example' }, { title: 'A file', url: 'magnet:?x' }] }) }; };
+  const r = await searxngSearch('Zen 5', { base: 'http://127.0.0.1:8080/', fetch: f });
+  assert.equal(asked[0], 'http://127.0.0.1:8080/search?q=Zen+5&format=json&language=en');
+  assert.deepEqual(r.sources, [{ url: 'https://en.wikipedia.org/wiki/Zen_5', title: 'Zen 5', snippet: 'a core' }]);
+  await searxngSearch('锐龙', { base: 'https://search.home.example/sx', fetch: f });
+  assert.match(asked[1], /^https:\/\/search\.home\.example\/sx\/search\?q=.*&format=json&language=zh-CN$/);
+  await assert.rejects(searxngSearch('x', { base: '', fetch: f }), (e) => e.code === 'WEB_PROVIDER_ERROR' && /needs the address/.test(e.message));
+  await assert.rejects(searxngSearch('x', { base: 'ftp://x', fetch: f }), /needs the address/);
+  // an instance with its JSON format off answers 403: said so
+  await assert.rejects(searxngSearch('x', { base: 'http://127.0.0.1:8080', fetch: async () => ({ ok: false, status: 403, json: async () => { throw new Error('html'); } }) }),
+    /HTTP 403 without results \(it must allow the JSON format\)/);
+});
+
+test('which search: the environment first, then what is set in the Rulith Brain app, then Wikipedia', () => {
+  assert.deepEqual(SERVICES, ['wikipedia', 'baidu', 'searxng']);
+  assert.deepEqual(searchConfig({}, {}), { service: 'wikipedia', baiduKey: '', searxngUrl: '' });
+  const app = { provider: 'baidu', baidu_key: 'APP-KEY', searxng_url: 'http://127.0.0.1:8080' };
+  assert.deepEqual(searchConfig({}, app), { service: 'baidu', baiduKey: 'APP-KEY', searxngUrl: 'http://127.0.0.1:8080' });
+  assert.deepEqual(searchConfig({ RULITH_BRAIN_SEARCH: ' SearXNG ', RULITH_BRAIN_SEARXNG_URL: 'http://mine:1', RULITH_BRAIN_BAIDU_KEY: 'ENV-KEY' }, app),
+    { service: 'searxng', baiduKey: 'ENV-KEY', searxngUrl: 'http://mine:1' });
+  // a name that is no service is not followed: the app's, else Wikipedia
+  assert.equal(searchConfig({ RULITH_BRAIN_SEARCH: 'google' }, app).service, 'baidu');
+  assert.equal(searchConfig({ RULITH_BRAIN_SEARCH: 'google' }, { provider: 'bing' }).service, 'wikipedia');
+  // the app's settings file, read only: its brain_web entry, {} when there is none
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'rb-search-'));
+  try {
+    assert.deepEqual(appSearchSettings({ RULITH_BRAIN_APP_HOME: home }), {});
+    fs.mkdirSync(path.join(home, 'config'));
+    fs.writeFileSync(path.join(home, 'config', 'settings.json'), JSON.stringify({ roots: [], brain_web: app }));
+    assert.deepEqual(appSearchSettings({ RULITH_BRAIN_APP_HOME: home }), app);
+    assert.equal(searchConfig({ RULITH_BRAIN_APP_HOME: home }).service, 'baidu');
+    fs.writeFileSync(path.join(home, 'config', 'settings.json'), '{ not json');
+    assert.deepEqual(appSearchSettings({ RULITH_BRAIN_APP_HOME: home }), {});
+    assert.deepEqual(appSearchSettings({}), {});
+  } finally { fs.rmSync(home, { recursive: true, force: true }); }
+});
+
+test('the provider asks the service that is set at the time of each search', async () => {
+  let set = { service: 'wikipedia' };
+  const asked = [];
+  const f = async (url, init) => {
+    asked.push(new URL(url).hostname);
+    if (/baidubce/.test(url)) return { ok: true, status: 200, json: async () => ({ references: [{ title: 'B', url: 'https://b.example' }] }) };
+    if (/127\.0\.0\.1/.test(url)) return { ok: true, status: 200, json: async () => ({ results: [{ title: 'S', url: 'https://s.example' }] }) };
+    return answer(HIT);
+  };
+  const p = new SearchProvider({ fetch: f, config: () => set });
+  assert.equal((await p.search({ query: 'Zen 5' })).sources[0].title, 'Zen 5');
+  set = { service: 'baidu', baiduKey: 'K' };
+  assert.equal((await p.search({ query: 'Zen 5' })).sources[0].title, 'B');
+  set = { service: 'searxng', searxngUrl: 'http://127.0.0.1:8080' };
+  assert.equal((await p.search({ query: 'Zen 5', maxResults: 3 })).sources[0].title, 'S');
+  assert.deepEqual(asked, ['en.wikipedia.org', 'qianfan.baidubce.com', '127.0.0.1']);
 });
 
 test('the system\'s proxy: one proxy for everything, one per protocol, none', () => {

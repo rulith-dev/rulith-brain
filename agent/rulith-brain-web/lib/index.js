@@ -1,19 +1,26 @@
-// Rulith Brain Agent's web search, without an account or a key: dsh's web_search tool asks the search provider the
-// profile selects, and the one dsh ships needs a paid API key of the user's. This one is Wikipedia's own search
-// interface, which is free to a client that names itself - the same search the Rulith Brain app's chat uses
-// (tools/manager.py brain_web_search). The search engines' result pages are not read: they answer a program off topic
-// or with a verification page (measured 2026-11-19), and they are not theirs to give. A general web search stays what
-// it was: another provider, with an account of the user's own (the profile's web entry names the one to use:
-// memory-agent.cordis.yml).
+// Rulith Brain Agent's web search: dsh's web_search tool asks the search provider the profile selects, and the one dsh
+// ships needs a paid API key of the user's. This one asks the search service the user chose - the same three the
+// Rulith Brain app's chat offers (tools/manager.py brain_web_search):
+//   wikipedia  Wikipedia's own search interface: free, no account, no key (the default)
+//   baidu      Baidu's own search interface (Qianfan, "Baidu Search"), with an API key of the user's
+//   searxng    a SearXNG instance of the user's own, by its address (its JSON format switched on)
+// Which one: RULITH_BRAIN_SEARCH; unset, the one set in the Rulith Brain app on this PC (its Settings); else Wikipedia.
+// The key and the address likewise: RULITH_BRAIN_BAIDU_KEY / RULITH_BRAIN_SEARXNG_URL, else the app's. The search
+// engines' result pages are not read: they answer a program off topic or with a verification page (measured
+// 2026-11-19), and they are not theirs to give.
 //
 // Reading a page (web_fetch) is dsh's own and needs nothing. Both go through the system's proxy when the launcher
 // found one (system-proxy.mjs).
+import fs from 'node:fs';
+import path from 'node:path';
 
 export const name = 'rulith-brain-web';
 /** dsh's web seam, where a search provider registers. */
 export const inject = ['web'];
 /** The id this provider registers under (the profile's web entry selects it: searchProvider). */
-export const PROVIDER_ID = 'rulith-wikipedia';
+export const PROVIDER_ID = 'rulith-search';
+export const SERVICES = Object.freeze(['wikipedia', 'baidu', 'searxng']);
+const BAIDU = 'https://qianfan.baidubce.com/v2/ai_search/web_search';
 
 const USER_AGENT = 'Mozilla/5.0 (compatible; RulithBrain/1.0; +https://rulith.ai/brain.html)';
 const MAX_RESULTS = 8;
@@ -27,6 +34,18 @@ const plain = (markup) => String(markup ?? '').replace(/<[^>]*>/g, ' ')
   }).replace(/\s+/g, ' ').trim();
 
 const failure = (message) => Object.assign(new Error(message), { code: 'WEB_PROVIDER_ERROR' });
+const words = (query) => {
+  const q = String(query ?? '').replace(/\s+/g, ' ').trim().slice(0, 300);
+  if (!q) throw failure('a search needs words to search for');
+  return q;
+};
+const count = (limit) => Math.max(1, Math.min(MAX_RESULTS, Math.round(Number(limit)) || MAX_RESULTS));
+const reached = (error) => error?.cause?.code ?? error?.message ?? String(error);
+/** One result as dsh takes it; null for one without a title or a web address. */
+const source = (title, url, snippet) => {
+  const t = plain(title).slice(0, 200), s = plain(snippet).slice(0, 320);
+  return t && /^https?:\/\//i.test(String(url ?? '')) ? { url: String(url), title: t, ...(s ? { snippet: s } : {}) } : null;
+};
 
 /**
  * What Wikipedia lists for the words: { sources: [{ url, title, snippet? }], truncated: false, content }.
@@ -36,9 +55,8 @@ const failure = (message) => Object.assign(new Error(message), { code: 'WEB_PROV
  * @throws an Error with code WEB_PROVIDER_ERROR when no edition answered.
  */
 export async function wikipediaSearch(query, { fetch: f = globalThis.fetch, signal, limit = MAX_RESULTS, editions } = {}) {
-  const q = String(query ?? '').replace(/\s+/g, ' ').trim().slice(0, 300);
-  if (!q) throw failure('a search needs words to search for');
-  const n = Math.max(1, Math.min(MAX_RESULTS, Math.round(Number(limit)) || MAX_RESULTS));
+  const q = words(query);
+  const n = count(limit);
   let last = null;
   for (const edition of editions ?? (CJK.test(q) ? ['zh', 'en'] : ['en'])) {
     const url = `https://${edition}.wikipedia.org/w/api.php?${new URLSearchParams({ action: 'query', list: 'search', srsearch: q, srlimit: String(n), srprop: 'snippet', format: 'json' })}`;
@@ -57,27 +75,107 @@ export async function wikipediaSearch(query, { fetch: f = globalThis.fetch, sign
       }
     } catch (error) {
       if (signal?.aborted) throw error;
-      last = failure(`Wikipedia (${edition}) could not be reached: ${error?.cause?.code ?? error?.message ?? error}`);
+      last = failure(`Wikipedia (${edition}) could not be reached: ${reached(error)}`);
     }
   }
   if (last) throw last;
   return { sources: [], truncated: false, content: 'Wikipedia has no article for these words. Try other words, or read a page by its address with web_fetch.' };
 }
 
-/** dsh's search provider: { id, available(), search({ query, maxResults }, signal) }. */
-export class WikipediaSearchProvider {
+/**
+ * What Baidu's search interface lists for the words, asked with the user's own API key.
+ * @throws an Error with code WEB_PROVIDER_ERROR: no key, Baidu's refusal in its own words (a bad key, a spent
+ *   allowance), or no answer.
+ */
+export async function baiduSearch(query, { key, fetch: f = globalThis.fetch, signal, limit = MAX_RESULTS } = {}) {
+  const q = words(query);
+  if (!String(key ?? '').trim()) throw failure('the Baidu search needs your API key: enter it in Rulith Brain (Settings, Web search) or set RULITH_BRAIN_BAIDU_KEY');
+  let r, j = null;
+  try {
+    r = await f(BAIDU, { method: 'POST', signal,
+      headers: { 'User-Agent': USER_AGENT, Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${String(key).trim()}` },
+      body: JSON.stringify({ messages: [{ role: 'user', content: q }], search_source: 'baidu_search_v2', resource_type_filter: [{ type: 'web', top_k: count(limit) }] }) });
+    try { j = await r.json(); } catch { j = null; }
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    throw failure(`Baidu could not be reached: ${reached(error)}`);
+  }
+  if (!Array.isArray(j?.references)) {
+    // (as Baidu answers a key it does not know, 2026-11-20: HTTP 401)
+    if (r.status === 401) throw failure('Baidu did not accept the API key: check it in Rulith Brain (Settings, Web search) or in RULITH_BRAIN_BAIDU_KEY');
+    throw failure(`Baidu: ${j?.message || j?.code ? `${j.message ?? 'refused'} (${j.code ?? r.status})` : `HTTP ${r.status}`}`.slice(0, 240));
+  }
+  const sources = j.references.map((x) => source(x?.title, x?.url, x?.snippet || x?.content)).filter(Boolean);
+  return { sources, truncated: false, content: sources.length
+    ? 'These are results of Baidu\'s search. Read one with web_fetch before relying on it.'
+    : 'Baidu found nothing for these words. Try other words, or read a page by its address with web_fetch.' };
+}
+
+/**
+ * What the user's SearXNG instance lists for the words.
+ * @param base - the instance's address ("http://127.0.0.1:8080").
+ * @throws an Error with code WEB_PROVIDER_ERROR: no address, an instance that does not answer in JSON, or no answer.
+ */
+export async function searxngSearch(query, { base, fetch: f = globalThis.fetch, signal, limit = MAX_RESULTS } = {}) {
+  const q = words(query);
+  const at = String(base ?? '').trim().replace(/\/+$/, '');
+  if (!/^https?:\/\/[^/?#]+/i.test(at)) throw failure('the search needs the address of your SearXNG instance: enter it in Rulith Brain (Settings, Web search) or set RULITH_BRAIN_SEARXNG_URL');
+  let r, j = null;
+  try {
+    r = await f(`${at}/search?${new URLSearchParams({ q, format: 'json', language: CJK.test(q) ? 'zh-CN' : 'en' })}`,
+      { headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' }, signal });
+    try { j = await r.json(); } catch { j = null; }
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    throw failure(`the search address could not be reached: ${reached(error)}`);
+  }
+  if (!Array.isArray(j?.results)) throw failure(`the search address answered HTTP ${r.status} without results${[403, 404].includes(r.status) ? ' (it must allow the JSON format)' : ''}`);
+  const sources = j.results.map((x) => source(x?.title, x?.url, x?.content)).filter(Boolean).slice(0, count(limit));
+  return { sources, truncated: false, content: sources.length
+    ? 'These are web search results. Read one with web_fetch before relying on it.'
+    : 'The search found nothing for these words. Try other words, or read a page by its address with web_fetch.' };
+}
+
+/** The search service set in the Rulith Brain app on this PC (its settings file), or {} - the agent only reads it. */
+export function appSearchSettings(env = process.env) {
+  const home = env.RULITH_BRAIN_APP_HOME || (env.LOCALAPPDATA ? path.join(env.LOCALAPPDATA, 'Rulith', 'Brain') : '');
+  if (!home) return {};
+  try {
+    const web = JSON.parse(fs.readFileSync(path.join(home, 'config', 'settings.json'), 'utf8'))?.brain_web;
+    return web && typeof web === 'object' ? web : {};
+  } catch { return {}; }
+}
+
+/**
+ * Which search to ask: { service, baiduKey, searxngUrl }. The environment goes first (RULITH_BRAIN_SEARCH,
+ * RULITH_BRAIN_BAIDU_KEY, RULITH_BRAIN_SEARXNG_URL), then what is set in the Rulith Brain app, then Wikipedia.
+ * A service that is not one of SERVICES is not followed.
+ */
+export function searchConfig(env = process.env, app = appSearchSettings(env)) {
+  const named = [String(env.RULITH_BRAIN_SEARCH ?? '').trim().toLowerCase(), String(app.provider ?? '')].find((x) => SERVICES.includes(x));
+  return { service: named ?? 'wikipedia', baiduKey: String(env.RULITH_BRAIN_BAIDU_KEY || app.baidu_key || '').trim(),
+    searxngUrl: String(env.RULITH_BRAIN_SEARXNG_URL || app.searxng_url || '').trim() };
+}
+
+/** dsh's search provider: { id, available(), search({ query, maxResults }, signal) }. Asked anew at every search,
+ *  so a change made in the app is followed without a restart. */
+export class SearchProvider {
   id = PROVIDER_ID;
 
-  constructor({ fetch: f } = {}) { this.fetch = f; }
+  constructor({ fetch: f, config = searchConfig } = {}) { this.fetch = f; this.config = config; }
 
   available() { return true; }
 
   search(request, signal) {
-    return wikipediaSearch(request?.query, { fetch: this.fetch, signal, limit: request?.maxResults });
+    const c = this.config();
+    const opts = { fetch: this.fetch, signal, limit: request?.maxResults };
+    if (c.service === 'baidu') return baiduSearch(request?.query, { ...opts, key: c.baiduKey });
+    if (c.service === 'searxng') return searxngSearch(request?.query, { ...opts, base: c.searxngUrl });
+    return wikipediaSearch(request?.query, opts);
   }
 }
 
 /** Registers the provider with dsh's web service. */
 export function apply(ctx) {
-  ctx.web.registerSearchProvider(new WikipediaSearchProvider());
+  ctx.web.registerSearchProvider(new SearchProvider());
 }
