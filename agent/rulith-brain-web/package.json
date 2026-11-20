@@ -1,0 +1,12 @@
+{
+  "name": "rulith-brain-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Rulith Brain Agent's web search without an account: Wikipedia's own search interface as dsh's search provider",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json"
+  }
+}

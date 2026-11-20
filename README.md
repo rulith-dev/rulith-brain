@@ -6,8 +6,10 @@ Long-term memory for the model on your own PC. Rulith Brain is a Windows desktop
 computer with a memory that lasts: what it learns from your folders, from research and from your conversations stays
 with it, and each answer names the documents it drew on. Your data stays on your computer.
 
-This repository holds no source code: Rulith Brain is closed source. It is where the releases, the licence and the
-issue tracker live. Product page, prices and purchase: [rulith.ai/brain.html](https://rulith.ai/brain.html).
+Rulith Brain - the app and its engine - is closed source: this repository holds none of their source. It is where
+the releases, the licence and the issue tracker live, and it holds the source of **Rulith Brain Agent**, the
+open-source companion agent ([agent/](agent/), MIT). Product page, prices and purchase:
+[rulith.ai/brain.html](https://rulith.ai/brain.html).
 
 ## What it does
 
@@ -38,7 +40,11 @@ issue tracker live. Product page, prices and purchase: [rulith.ai/brain.html](ht
 
 The companion agent: it works on tasks you give it, opens in your browser, and uses the same memory. Download
 `rulith-brain-agent-<version>.zip` from [Releases](../../releases), unpack it, and run `start.cmd` while Rulith Brain
-is open (Node.js is included). Its switch **Learn from research** is on by default.
+is open (Node.js is included). Its switch **Learn from research** is on by default. It searches Wikipedia without an
+account and reads any web page by its address.
+
+The agent is open source under the MIT licence: its source, and how to run it from source, are in [agent/](agent/).
+A preview of it is on the Releases page already; it needs Rulith Brain, whose first release is being prepared.
 
 ## Requirements
 
@@ -54,7 +60,7 @@ is open (Node.js is included). Its switch **Learn from research** is on by defau
 A 30-day trial with everything included, then a one-time purchase per device, sized by how much the memory holds
 (10M, 50M, 200M or unlimited tokens). Prices, the sizes on sale, refunds, moving to new hardware and larger sizes:
 [rulith.ai/brain.html](https://rulith.ai/brain.html). The full terms (the end user licence agreement) are published
-here with the first release.
+here with the first release. Rulith Brain Agent is not under them: it is open source, [MIT](agent/LICENSE).
 
 ## Download
 

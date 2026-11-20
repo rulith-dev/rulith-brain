@@ -2,9 +2,9 @@
 
 Rulith Brain comes in three packages. Each carries the full licence texts of the parts listed for it: the runtime in
 `licenses\`, the desktop app in `runtime\licenses\` (Python's own in `runtime\python\LICENSE.txt`), the agent in
-`THIRD-PARTY-NOTICES.txt` and `node\LICENSE`. Rulith Brain is Copyright (c) 2026 Tengfei Xiao; Rulith's own code is
+`THIRD-PARTY-NOTICES.txt` and `node\LICENSE`. Rulith Brain is Copyright (c) 2026 Victor Shaw; Rulith's own code is
 under the Rulith Brain licence agreement (EULA.md), and the code it takes from Rulith Inference is MIT, Copyright (c)
-2026 Tengfei Xiao. Where to get the source of the LGPL and MPL components: the last section. The numbers of packages
+2026 Victor Shaw. Where to get the source of the LGPL and MPL components: the last section. The numbers of packages
 below are those of version 0.2.0.
 
 ## The runtime (`rulith-brain-runtime-<version>.zip`)
@@ -81,7 +81,7 @@ Brain page itself has no third-party code.
   Redistributable, distributed under the Visual Studio licence terms.
 - **LLVM OpenMP runtime** (`libomp140.x86_64.dll`, Microsoft's build, from the Visual C++ redistributable) - Apache
   License 2.0 with LLVM Exceptions; Microsoft's redistribution terms.
-- **Rulith Inference**'s manager, downloader and model catalog - MIT, Copyright (c) 2026 Tengfei Xiao
+- **Rulith Inference**'s manager, downloader and model catalog - MIT, Copyright (c) 2026 Victor Shaw
   (`runtime\licenses\LICENSE-rulith-inference`).
 
 ## The agent (`rulith-brain-agent-<version>.zip`)
@@ -127,6 +127,6 @@ The agent package holds components under the GNU LGPL and the Mozilla Public Lic
   the version of every library in it: https://github.com/lovell/sharp-libvips/tree/v1.3.4 (`versions.properties`, and
   `versions.json` in the package); the source of each at that version is at its project's address.
 
-Written offer: on request, the licensor of Rulith Brain (Tengfei Xiao, see EULA.md) also provides the complete
+Written offer: on request, the licensor of Rulith Brain (see EULA.md) also provides the complete
 corresponding source code of these components, for the version of the agent package you received, for at least three
 years from that version's release, at no more than the cost of providing it. Write to contact@rulith.com.
