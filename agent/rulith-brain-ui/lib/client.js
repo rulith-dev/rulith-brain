@@ -14,26 +14,39 @@ window.__ModuleLoader__.load({
     const NAME = "Rulith Brain Agent";
     const CREDIT = "Based on DeepSeek Harness (MIT)";
     const UPSTREAM = "DeepSeek Harness";
-    // the Rulith mark (the app's icon): a white R on a blue square, light top left to dark bottom right
-    const LIGHT = "#3B82F6", DARK = "#1E3A8A";
-    const BODY = "M30 22H56C68 22 76 30 76 40C76 48.5 71 54.5 63.5 56.5L49.5 58H44V78H30Z"
-      + "M44 33.5V47H55.5C59.5 47 62 44.3 62 40.25C62 36.2 59.5 33.5 55.5 33.5Z";
-    const LEG = "M49.5 58L63.5 56.5L77 78H61.5Z";
-    const markSvg = (id) => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
-      + `<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${LIGHT}"/><stop offset="1" stop-color="${DARK}"/></linearGradient></defs>`
-      + `<rect width="100" height="100" rx="22" fill="url(#${id})"/>`
-      + `<g transform="translate(-3 0)" fill="#fff"><path fill-rule="evenodd" d="${BODY}"/><path d="${LEG}"/></g></svg>`;
+    // the agent's mark (its app icon): a blue brain on a white tile - Rulith Brain's icon turned round. A 64-unit
+    // box, the shapes of the app's icon generator; the blue runs light top left to dark bottom right over the tile
+    const LIGHT = "#3B82F6", DARK = "#1E3A8A", EDGE = "#C9D3E2";
+    const AT = "translate(3.5 5.4) scale(0.9)";
+    const LOBES = [[13, 29, 9], [19, 20, 9], [30, 15.5, 9], [42, 16.5, 9], [51, 23, 9], [54, 32, 8], [22, 38, 9], [33, 40, 8]];
+    const STEM = "M35 44H44L45.6 51.2A3.4 3.4 0 0 1 42.3 55.3H39.6A3.4 3.4 0 0 1 36.2 52.3Z";
+    const FOLDS = ["M8.5 27.5q4.5 -2.5 8 0.5", "M21.5 12.5q-1.8 4.8 1.8 8.4", "M33.5 8.5q-2.6 6 1.4 10q3 3.6 0.4 8", "M45.5 12.5q-2.5 4.5 1.5 8",
+      "M49.5 27q4.5 0.5 6 4.5", "M17 32q6.5 -3.2 13.5 0", "M39.5 29.5q5 2 4 8", "M41.8 40.6q5.6 -3.4 12 -0.4"];
+    const markSvg = (id) => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">'
+      + `<defs><linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="64" y2="64"><stop offset="0" stop-color="${LIGHT}"/><stop offset="1" stop-color="${DARK}"/></linearGradient></defs>`
+      + `<rect width="64" height="64" rx="14" fill="#fff"/><rect x="0.5" y="0.5" width="63" height="63" rx="13.5" fill="none" stroke="${EDGE}"/>`
+      + `<g transform="${AT}"><g fill="url(#${id})"><ellipse cx="32" cy="30" rx="24" ry="15"/>`
+      + LOBES.map(([cx, cy, r]) => `<circle cx="${cx}" cy="${cy}" r="${r}"/>`).join("")
+      + `<ellipse cx="48" cy="42.5" rx="9" ry="6.5"/><path d="${STEM}"/></g>`
+      + `<g fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round">${FOLDS.map((d) => `<path d="${d}"/>`).join("")}</g></g></svg>`;
 
     let marks = 0;
     function Mark({ size, className }) {
       const [id] = React.useState(() => `rulith-brain-mark-${++marks}`);   // one gradient id per drawn mark
       const edge = size || 24;
-      return h("svg", { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 100 100", width: edge, height: edge, className,
+      return h("svg", { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 64 64", width: edge, height: edge, className,
           role: "img", "aria-label": NAME, style: { display: "block", flex: "none" } },
-        h("defs", null, h("linearGradient", { id, x1: 0, y1: 0, x2: 1, y2: 1 },
+        h("defs", null, h("linearGradient", { id, gradientUnits: "userSpaceOnUse", x1: 0, y1: 0, x2: 64, y2: 64 },
           h("stop", { offset: 0, stopColor: LIGHT }), h("stop", { offset: 1, stopColor: DARK }))),
-        h("rect", { width: 100, height: 100, rx: 22, fill: `url(#${id})` }),
-        h("g", { transform: "translate(-3 0)", fill: "#fff" }, h("path", { fillRule: "evenodd", d: BODY }), h("path", { d: LEG })));
+        h("rect", { width: 64, height: 64, rx: 14, fill: "#fff" }),
+        h("rect", { x: 0.5, y: 0.5, width: 63, height: 63, rx: 13.5, fill: "none", stroke: EDGE }),
+        h("g", { transform: AT },
+          h("g", { fill: `url(#${id})` },
+            h("ellipse", { cx: 32, cy: 30, rx: 24, ry: 15 }),
+            ...LOBES.map(([cx, cy, r], k) => h("circle", { key: k, cx, cy, r })),
+            h("ellipse", { cx: 48, cy: 42.5, rx: 9, ry: 6.5 }), h("path", { d: STEM })),
+          h("g", { fill: "none", stroke: "#fff", strokeWidth: 1.9, strokeLinecap: "round" },
+            ...FOLDS.map((d, k) => h("path", { key: k, d })))));
     }
     // the agent's own Brain page: the launcher writes its address here when it copies this plugin into the profile
     // (start.mjs: the forwarder's port is another at every start). As the file ships, there is no address and no entry.

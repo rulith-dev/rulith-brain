@@ -248,7 +248,10 @@ test('the brand: mark, name, credit and title in the slots dsh declares; the tab
   const ui = brandPlugin(undefined, { document, MutationObserver });
   assert.equal(ui.NAME, 'Rulith Brain Agent');
   assert.equal(ui.CREDIT, 'Based on DeepSeek Harness (MIT)');
-  assert.match(ui.markSvg('g'), /^<svg [^>]*viewBox="0 0 100 100".*#3B82F6.*#1E3A8A.*fill="#fff"/);
+  // the mark: the app's icon - a blue brain on a white tile, no letter (the owner, 11-20: the brain alone)
+  assert.match(ui.markSvg('g'), /^<svg [^>]*viewBox="0 0 64 64".*#3B82F6.*#1E3A8A.*fill="#fff".*fill="url\(#g\)"><ellipse /);
+  assert.equal((ui.markSvg('g').match(/<circle /g) || []).length, 8);
+  assert.doesNotMatch(ui.markSvg('g'), /M30 22H56/);
   const slots = new Map(), effects = [];
   const ctx = {
     slots: {
