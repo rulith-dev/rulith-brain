@@ -13,7 +13,8 @@
   },
   "scripts": {
     "start": "node start.mjs",
-    "test": "node --test test/memory-transport.test.mjs test/brain.test.mjs test/research.test.mjs test/pack.test.mjs test/web-search.test.mjs",
+    "test": "node --test test/memory-transport.test.mjs test/brain.test.mjs test/research.test.mjs test/pack.test.mjs test/web-search.test.mjs test/desktop.test.mjs",
+    "desktop": "node tools/desktop.mjs",
     "package": "node tools/pack.mjs"
   },
   "dependencies": {

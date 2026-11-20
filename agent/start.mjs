@@ -154,6 +154,11 @@ for (const own of ['rulith-brain-ui', 'rulith-brain-web']) {
   fs.rmSync(to, { recursive: true, force: true });
   fs.cpSync(path.join(here, own), to, { recursive: true });
 }
+// the brand's sidebar entry opens the agent's own Brain page: its address is this start's (the forwarder's port)
+{
+  const client = path.join(home, 'profiles', PROFILE, 'node_modules', 'rulith-brain-ui', 'lib', 'client.js');
+  fs.writeFileSync(client, fs.readFileSync(client, 'utf8').replace('"__RULITH_BRAIN_PANEL__"', JSON.stringify(`${origin}/brain`)));
+}
 
 const child = spawn(process.execPath, [dshBin, '--profile', PROFILE, '--patch', overlay, ...argv],
   { cwd: process.cwd(), env, stdio: ['inherit', 'pipe', 'inherit'] });

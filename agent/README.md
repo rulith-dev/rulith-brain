@@ -21,11 +21,16 @@ small forwarder that sends each turn to the memory instead of the whole conversa
 - **Searches without an account.** Its web search is Wikipedia's own search interface: no API key, nothing to sign up
   for. Any page of the web is read by its address. Behind a proxy that Windows is set to use, the agent follows it.
 - **Or with a search address of your own.** A SearXNG instance by its address: see [Web search](#web-search).
+- **Says what it works with.** **Rulith Brain** at the foot of the page's sidebar opens the agent's own Brain page:
+  whether Brain runs, the switch Learn from research, and the documents the last answer drew on.
 
 ## Get it
 
 **Windows package** (nothing else to install: Node.js is included): download `rulith-brain-agent-<version>.zip` from
 [Releases](../../../releases), unpack it into a folder with a short path, and run `start.cmd` while Rulith Brain is open.
+
+**As a desktop app** (a setup, a Start-menu entry, a window of its own instead of a console window and a browser
+tab): no setup is published yet; it is built from source with `npm run desktop` (below).
 
 **From source** (Node.js 22.19 or newer):
 
@@ -80,6 +85,8 @@ engines are not read.
 | `memory-agent.cordis.yml` | the changes to dsh's web profile |
 | `test/` | the tests, and `mock-server.mjs`: a stand-in for Rulith Brain's memory server, for trying the agent without a model |
 | `tools/pack.mjs` | builds the Windows package (`npm run package`) with every third-party licence text |
+| `desktop/` | the desktop app: a small Tauri shell that starts the agent without a console window, shows its page in a window of its own and stops it with the window |
+| `tools/desktop.mjs` | builds the desktop app's setup (`npm run desktop`; needs Rust and the Tauri CLI: `npm i -D @tauri-apps/cli`, or `--tauri <its tauri.js>`) |
 
 ```
 npm test

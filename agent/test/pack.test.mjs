@@ -160,6 +160,67 @@ test('nothing that looks like a key in the agent\'s own files, and the check fin
   for (const f of APP_FILES) for (const file of walk(path.join(AGENT, f))) assert.deepEqual(secretsIn(fs.readFileSync(file, 'utf8')), [], file);
 });
 
+test('the way to Rulith Brain: an entry at the sidebar\'s foot opens the agent\'s Brain page; a newcomer is shown it once', () => {
+  // the launcher writes this start's address into the profile's copy of the plugin (start.mjs)
+  const dir = scratch();
+  const file = path.join(dir, 'client.js');
+  const shipped = fs.readFileSync(path.join(AGENT, 'rulith-brain-ui', 'lib', 'client.js'), 'utf8');
+  assert.equal(shipped.split('"__RULITH_BRAIN_PANEL__"').length, 2, 'the placeholder stands once');
+  fs.writeFileSync(file, shipped.replace('"__RULITH_BRAIN_PANEL__"', JSON.stringify('http://127.0.0.1:8098/brain')));
+  assert.ok(fs.readFileSync(path.join(AGENT, 'start.mjs'), 'utf8').includes(`.replace('"__RULITH_BRAIN_PANEL__"', JSON.stringify(\`\${origin}/brain\`))`));
+  // a page to open it over: just enough of a document
+  const made = [];
+  const node = (tag) => {
+    const n = { tag, style: {}, attrs: {}, kids: [], listeners: {}, removed: false,
+      setAttribute(k, v) { this.attrs[k] = v; }, append(...x) { this.kids.push(...x); }, remove() { this.removed = true; document.body.kids = document.body.kids.filter((k) => k !== this); },
+      addEventListener(type, fn) { this.listeners[type] = fn; }, focus() { document.focused = this; } };
+    made.push(n);
+    return n;
+  };
+  const keys = [];
+  const document = { body: node('body'), createElement: node, focused: null,
+    getElementById: (id) => document.body.kids.find((k) => k.id === id) ?? null,
+    addEventListener: (type, fn) => keys.push(fn), removeEventListener: (type, fn) => keys.splice(keys.indexOf(fn), 1) };
+  const ui = brandPlugin(file, { document, navigator: { language: 'en-US' } });
+  assert.equal(ui.PANEL, 'http://127.0.0.1:8098/brain');
+  const slots = new Map();
+  ui.apply({ slots: { inject: (name, fn) => { const r = fn(); if (r && typeof r.next === 'function') [...r]; }, register: (spec, component) => { slots.set(spec.name, component); return () => {}; } },
+    effect: () => {} });
+  const text = (n) => (n == null || typeof n !== 'object' ? String(n ?? '') : n.children.map(text).join(''));
+  const foot = slots.get('sidebar.footer.action')({ wide: true });
+  assert.equal(text(foot), 'Rulith BrainBased on DeepSeek Harness (MIT)');
+  const entry = foot.children[0];
+  assert.equal(entry.type, 'button');
+  assert.match(entry.props['aria-label'], /^Rulith Brain\. The memory this agent works with/);
+  // the narrow sidebar: the entry's glyph alone, no credit
+  const narrow = slots.get('sidebar.footer.action')({ wide: false });
+  assert.deepEqual([narrow.children[0].type, text(narrow), narrow.children[1]], ['button', '', null]);
+  // opened: the page in a frame over dsh's page, once; Escape or its button closes it
+  assert.equal(ui.openPanel(document), true);
+  const panel = document.getElementById('rulith-brain-panel');
+  const frame = made.find((n) => n.tag === 'iframe');
+  assert.deepEqual([panel.attrs.role, frame.src, document.focused.attrs['aria-label']], ['dialog', 'http://127.0.0.1:8098/brain?embed=1', 'Close']);
+  assert.equal(ui.openPanel(document), false, 'not twice');
+  keys[0]({ key: 'a' });
+  assert.equal(panel.removed, false);
+  keys[0]({ key: 'Escape' });
+  assert.deepEqual([panel.removed, keys.length, document.getElementById('rulith-brain-panel')], [true, 0, null]);
+  // a newcomer is shown it once: the visit is kept before the page opens
+  const store = new Map();
+  const storage = { getItem: (k) => store.get(k) ?? null, setItem: (k, v) => store.set(k, v) };
+  assert.equal(ui.introduce(document, storage), true);
+  document.getElementById('rulith-brain-panel').kids[0].kids[0].kids[1].listeners.click();   // its Close button
+  assert.equal(document.getElementById('rulith-brain-panel'), null);
+  assert.equal(ui.introduce(document, storage), false);
+  assert.equal(ui.introduce(document, { getItem() { throw new Error('no storage'); }, setItem() {} }), false);
+  // the page itself begins with what the agent is, in both languages
+  const page = fs.readFileSync(path.join(AGENT, 'brain-panel.html'), 'utf8');
+  assert.match(page, /aboutTitle: 'One memory, shared with Rulith Brain'/);
+  assert.match(page, /aboutText: 'This agent has no model and no memory of its own/);
+  assert.match(page, /aboutTitle: '和 Rulith Brain 共用一份记忆'/);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 test('licence texts: at the root, bundled deeper, a licences folder; code and nested packages left alone', () => {
   const dir = scratch();
   put(path.join(dir, 'LICENSE'), 'MIT root\r\n');
@@ -198,11 +259,15 @@ test('the brand: mark, name, credit and title in the slots dsh declares; the tab
   };
   ui.apply(ctx);
   assert.deepEqual([...slots.keys()].sort(), ['conversation.hero.brand.mark', 'sidebar.brand.mark', 'sidebar.brand.name', 'sidebar.footer.action']);
-  assert.equal(slots.get('sidebar.footer.action').spec.id, 'rulith-brain-credit');
+  assert.equal(slots.get('sidebar.footer.action').spec.id, 'rulith-brain-foot');
   const text = (node) => (node == null || typeof node !== 'object' ? String(node ?? '') : node.children.map(text).join(''));
   assert.equal(text(slots.get('sidebar.brand.name').component({})), 'Rulith Brain Agent');
+  // as the file ships there is no address of the agent's Brain page: the foot is the credit alone
+  assert.equal(ui.PANEL, '__RULITH_BRAIN_PANEL__');
   assert.equal(text(slots.get('sidebar.footer.action').component({ wide: true })), 'Based on DeepSeek Harness (MIT)');
   assert.equal(slots.get('sidebar.footer.action').component({ wide: false }), null);
+  assert.equal(ui.openPanel(document), false);
+  assert.equal(ui.introduce(document, { getItem: () => null, setItem() {} }), false);
   assert.equal(slots.get('sidebar.brand.mark').component({ size: 24 }).props.width, 24);
   // the tab
   assert.equal(document.title, 'What chapter 3 says — Rulith Brain Agent');
@@ -212,6 +277,7 @@ test('the brand: mark, name, credit and title in the slots dsh declares; the tab
   assert.equal(document.title, 'Another — Rulith Brain Agent');
   effects[0]();                                                     // the effect's disposer stops watching
   assert.equal(observed, null);
+  effects[1]();                                                     // (and the introduction's timer is dropped)
 });
 
 test('the installed dsh still has every text the package renames (else a newer dsh needs a look)', { skip: !fs.existsSync(path.join(AGENT, 'node_modules', '@deepseek-ai', 'dsh')) }, () => {

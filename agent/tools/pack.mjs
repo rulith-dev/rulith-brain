@@ -156,7 +156,7 @@ export const BRAND_ICONS = ['@deepseek-ai/dsh-web-frontend/dist/favicon.svg', '@
 export function brandPlugin(file = path.join(AGENT, 'rulith-brain-ui', 'lib', 'client.js'), page = {}) {
   let loaded;
   const window = { __ModuleLoader__: { load: (spec) => { loaded = spec; } } };
-  vm.runInNewContext(fs.readFileSync(file, 'utf8'), { window, encodeURIComponent, MutationObserver: class {}, document: {}, ...page }, { filename: file });
+  vm.runInNewContext(fs.readFileSync(file, 'utf8'), { window, encodeURIComponent, setTimeout, clearTimeout, MutationObserver: class {}, document: {}, ...page }, { filename: file });
   const react = { createElement: (type, props, ...children) => ({ type, props: props ?? {}, children }), useState: (init) => [typeof init === 'function' ? init() : init] };
   return loaded.factory((name) => { if (name === 'react') return react; throw new Error(`no ${name} here`); });
 }

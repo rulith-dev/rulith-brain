@@ -92,6 +92,7 @@
 </header>
 <main>
   <section class="card notice" id="notice" hidden><h2 id="notice-title"></h2><p class="dim" id="notice-help"></p></section>
+  <section class="card"><h3 id="about-title"></h3><p class="dim" id="about-text"></p></section>
   <section class="card">
     <div class="row">
       <div><h3 id="learn-name"></h3><p class="dim" id="learn-how"></p></div>
@@ -131,6 +132,8 @@ const T = zh ? {
   loading: 'Brain 正在加载模型', loadingHelp: '需要几分钟，准备好后智能体会自动继续。',
   waitBusy: '正在等待 Brain', waitBusyHelp: 'Brain 正在回答另一个对话（比如应用里的提问）。它答完后，智能体会自动继续。',
   noAgent: '智能体没有响应', noAgentHelp: '它的窗口可能已经关闭。重新启动智能体后，请用它启动时显示的地址打开本页。',
+  aboutTitle: '和 Rulith Brain 共用一份记忆',
+  aboutText: '这个智能体没有自己的模型，也没有自己的记忆：它用的是 Rulith Brain 在这台电脑上运行的模型和记忆。你在这里交代和完成的事会被记住，Rulith Brain 应用里的对话也知道。',
   learnName: '调研时学习', learnHow: '智能体完成任务时阅读的网页会学进记忆。', on: '开', off: '关',
   readOnly: '这个记忆是只读的，不会学习。', cannot: '这个记忆不能学习。', pages: (n) => `已学习 ${n} 个网页，最新的：`,
   rememberName: '记住对话', rememberRo: '在应用中设置', rememberHelp: '在 Rulith Brain 应用的“设置”中设置。智能体自己从不要求记忆忘记对话。',
@@ -155,6 +158,8 @@ const T = zh ? {
   loading: 'Brain is loading the model', loadingHelp: 'This takes a few minutes; the agent goes on by itself when it is ready.',
   waitBusy: 'Waiting for Brain', waitBusyHelp: 'Brain is answering another conversation (a question in the app, for example). The agent goes on by itself when that answer is done.',
   noAgent: 'The agent does not answer', noAgentHelp: 'Its window may have been closed. Start the agent again and open this page from the address it prints.',
+  aboutTitle: 'One memory, shared with Rulith Brain',
+  aboutText: 'This agent has no model and no memory of its own: it works with the model and the memory that Rulith Brain runs on this PC. What you ask and do here is remembered, and the chat in the Rulith Brain app knows it too.',
   learnName: 'Learn from research', learnHow: 'Pages the agent reads while working on a task are learned into the memory.', on: 'On', off: 'Off',
   readOnly: 'This memory is read-only: it does not learn.', cannot: 'This memory cannot learn.',
   pages: (n) => `${n} page${n === 1 ? '' : 's'} learned, the newest:`,
@@ -202,6 +207,8 @@ const documentOf = (label) => String(label || '').replace(/ \(part \d+ of \d+\)$
 
 document.documentElement.lang = T.lang;
 $('title').textContent = T.title;
+$('about-title').textContent = T.aboutTitle;
+$('about-text').textContent = T.aboutText;
 $('learn-name').textContent = T.learnName;
 $('learn-how').textContent = T.learnHow;
 $('remember-name').textContent = T.rememberName;
