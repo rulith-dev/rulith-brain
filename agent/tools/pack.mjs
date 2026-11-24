@@ -340,7 +340,7 @@ export function packageFolders(nm) {
 
 // Who sends the source of the LGPL / MPL parts on request (the written offer in THIRD-PARTY-NOTICES.txt): Rulith's
 // contact address. A release is not made while this is a placeholder.
-export const SOURCE_OFFER_CONTACT = 'contact@rulith.com';
+export const SOURCE_OFFER_CONTACT = 'contact@rulith.ai';
 // For each npm package (at the version written here) whose binaries hold code whose licence texts the package does not
 // ship: what is inside, the texts (tools/licenses, see the head) and where the exact source is. A package left out
 // (--without-office) is left out here too; another version of one is refused with --release: look at it again.

@@ -140,7 +140,7 @@ test('the binaries section: texts and sources of the packages present, the writt
   assert.ok(text.includes('https://github.com/libvips/libvips/releases/tag/v8.18.7'));
   assert.ok(text.includes('GNU LESSER GENERAL PUBLIC LICENSE'));
   assert.match(text, /Written offer for the source code[\s\S]*libvips 8\.18\.7[\s\S]*three years/);
-  assert.match(text, /Write to: contact@rulith\.com/);
+  assert.match(text, /Write to: contact@rulith\.ai/);
   assert.ok(!text.includes('libreoffice-26.8.0.3.tar.xz'));
   fs.rmSync(nm, { recursive: true, force: true });
 });
@@ -315,12 +315,12 @@ test('one version for app, runtime and agent: ../BRAIN_VERSION, and package.json
 });
 
 test('a legal text must be final: a DRAFT mark or a bracket placeholder is found; the agent\'s own licence is MIT', () => {
-  assert.deepEqual(legalProblems('Licensor: A. Person. Write to contact@rulith.com. See [the notices](N.md).', 'E'), []);
+  assert.deepEqual(legalProblems('Licensor: A. Person. Write to contact@rulith.ai. See [the notices](N.md).', 'E'), []);
   const found = legalProblems('> **DRAFT** - not in force\nEffective: [date]. Transfers [up to N - OPEN] via [contact address]. [OWNER: confirm]', 'E');
   assert.deepEqual(found, ['E: "DRAFT"', 'E: [up to N - OPEN]', 'E: [OWNER: confirm]', 'E: [date]', 'E: [contact address]']);
   // the third-party texts' own brackets are not ours
   assert.deepEqual(legalProblems('Copyright [yyyy] [name of copyright owner]; a draft of the standard', 'E'), []);
-  assert.equal(SOURCE_OFFER_CONTACT, 'contact@rulith.com');
+  assert.equal(SOURCE_OFFER_CONTACT, 'contact@rulith.ai');
   // the agent is open source: the MIT text with its copyright line, and package.json says the same
   const own = fs.readFileSync(path.join(AGENT, 'LICENSE'), 'utf8').replaceAll('\r\n', '\n');
   assert.match(own, /^MIT License\n\nCopyright \(c\) \d{4} [^\n[\]]+\n\nPermission is hereby granted, free of charge/);

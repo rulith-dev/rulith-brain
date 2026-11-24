@@ -100,4 +100,4 @@ Rulith Brain itself - the app and its engine - is a separate, closed-source prod
 
 ## Questions and problems
 
-Report problems on [GitHub Issues](https://github.com/rulith-dev/rulith-brain/issues), or write to contact@rulith.com.
+Report problems on [GitHub Issues](https://github.com/rulith-dev/rulith-brain/issues), or write to contact@rulith.ai.

@@ -1,6 +1,6 @@
 # Rulith Brain - End User Licence Agreement
 
-Licensor: Tengfei Xiao, an individual developer based in China ("the Licensor"). Contact: contact@rulith.com.
+Licensor: Tengfei Xiao, an individual developer based in China ("the Licensor"). Contact: contact@rulith.ai.
 Licences are sold through rulith.ai; payments are processed by Creem, the merchant of record. Effective: 23 November 2026.
 
 Copyright (c) 2026 Tengfei Xiao. All rights reserved.
@@ -39,14 +39,14 @@ the Software's updates. Support for further models may be added at the Licensor'
 The sizes are 10M, 50M, 200M and unlimited tokens of memory; rulith.ai says which of them are on sale. "Unlimited" means as large as your device can hold: it is
 bounded by your device's disk and memory.
 
-You may move to a larger size by paying the price difference. To do so, write to contact@rulith.com with your licence
+You may move to a larger size by paying the price difference. To do so, write to contact@rulith.ai with your licence
 key; you receive a code that takes what you paid off the price of the larger size.
 
 ## 5. Moving the licence to another device
 
 When the licensed device is replaced or its hardware changes so that the licence no longer matches it, you may move
 the licence to the new device yourself, in the desktop app ("Move it to this device", which needs an internet
-connection), once per licence key. A further move needs the Licensor's approval: write to contact@rulith.com with
+connection), once per licence key. A further move needs the Licensor's approval: write to contact@rulith.ai with
 your licence key and what happened to the device. After a move you may no longer use the Software under that licence
 on the previous device.
 
@@ -103,4 +103,4 @@ country where you live gives you.
 ## 13. Contact
 
 Questions about this agreement, upgrades, a licence move beyond the one in section 5, and requests under
-THIRD-PARTY-NOTICES.md: contact@rulith.com.
+THIRD-PARTY-NOTICES.md: contact@rulith.ai.

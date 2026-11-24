@@ -134,4 +134,4 @@ The agent package holds components under the GNU LGPL and the Mozilla Public Lic
 
 Written offer: on request, the licensor of Rulith Brain (see EULA.md) also provides the complete
 corresponding source code of these components, for the version of the agent package you received, for at least three
-years from that version's release, at no more than the cost of providing it. Write to contact@rulith.com.
+years from that version's release, at no more than the cost of providing it. Write to contact@rulith.ai.
