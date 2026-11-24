@@ -20,7 +20,7 @@ free for 30 days, no payment details asked. Product page: [rulith.ai](https://ru
 - **A memory that lasts.** It is there after a restart and weeks later, so you stop pasting the same material
   into every chat.
 - **It keeps learning.** Notes in your folders, your conversations and web research all go into one memory.
-- **Private.** A 125B model and its memory run on your own machine: no cloud account, no telemetry, and local
+- **Private.** The model and its memory run on your own machine: no cloud account, no telemetry, and local
   chat works offline. The memory is a folder on your disk that you can back up or move.
 - **An agent included.** Rulith Brain Agent, a free open-source companion, researches the web and works on tasks
   with what Brain remembers. Ask it to research a question today, then open Chat tomorrow and ask what it found.
@@ -98,7 +98,7 @@ passages are done in the app.
 | Machine | An AMD Ryzen AI Max+ 395 PC with Radeon 8060S graphics and 128 GB of memory |
 | Graphics memory | 64 GB, set in the BIOS |
 | System | Windows 11 |
-| Model | Qwen3.8-Flash-Next. The app downloads it (about 107 GB), or uses a copy already on your PC |
+| Supported models | Qwen3.8-Flash-Next: 180B parameters in all, 6B active per token. The app downloads it (about 107 GB), or uses a copy already on your PC. Your licence covers the models later versions add |
 | Disk | About 107 GB for the model, and for the memory about 6.5 GB for every million tokens it holds |
 | Connection | To download the app and the model, and once each to start the trial, to activate a licence and to move one. Local chat then works offline; web research needs a connection |
 
