@@ -31,8 +31,8 @@ once; after that the licence is checked on the device without a connection. The 
 non-exclusive, non-transferable (except as in section 5) right to install and use the Software on that device, with
 memories up to that size.
 
-"Perpetual" covers: the device the licence is bound to; the models the Software supports at the time of purchase; and
-the Software's updates. Support for further models may be added at the Licensor's discretion and is not promised.
+"Perpetual" covers: the device the licence is bound to; every model the Software supports on that device - the models
+supported at the time of purchase and the models later versions add; and the Software's updates.
 
 ## 4. Sizes and upgrades
 
