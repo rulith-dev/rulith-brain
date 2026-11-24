@@ -27,6 +27,7 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { createMemoryProxy, waitForServer } from './memory-transport.mjs';
 import { proxyEnv, windowsProxySettings } from './system-proxy.mjs';
+import { capacityLimit, capacityText, localCapacity } from './capacity.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const PROFILE = 'rulith-memory';
@@ -87,6 +88,8 @@ const headers = key && key !== 'local' ? { Authorization: `Bearer ${key}` } : {}
 // Rulith Brain may not run yet, or still be loading its model: the agent waits for it (and says so once)
 let model;
 let frozen = false;
+const local = localCapacity(server);
+console.log('Brain capacity ' + JSON.stringify([capacityText(local, false), capacityText(local, true)]));
 try {
   const { status, model: id } = await waitForServer({ server, headers, log: (line) => console.log(line) });
   model = id;
@@ -112,7 +115,7 @@ try {
 
 // the forwarder dsh's model route points at: each request goes to the memory as one turn (its conversation ids start
 // with "agent"; a turn that meets the app's own chat being answered waits for it, up to 15 minutes)
-const { proxy } = createMemoryProxy({ server, log: (t) => console.log(t), headers,
+const { proxy } = createMemoryProxy({ server, model, log: (t) => console.log(t), headers,
   brain: { enabled: brainOn, front, focusK, focusEvery, persona, systemFrom },
   learn: { research: learnResearch, onChange: ({ research }) => saveSettings({ learnResearch: research }) },
   panel: fs.readFileSync(path.join(here, 'brain-panel.html'), 'utf8') });
@@ -120,7 +123,7 @@ await new Promise((resolve, reject) => { proxy.once('error', reject); proxy.list
 const origin = `http://127.0.0.1:${proxy.address().port}`;
 const base = `${origin}/v1`;
 console.log(`The agent's page (whether Brain runs, the switches, what each answer drew on): ${origin}/brain`
-  + `${brainOn ? '' : ' - answers do not draw on the memory\'s documents (--brain off)'}`);
+  + `${brainOn ? '' : ' - answers do not draw on the memory (--brain off)'}`);
 console.log(`Learn from research: ${learnResearch ? 'on' : 'off'}${learnResearch && frozen ? ' (this memory is read-only: it does not learn)' : ''}`
   + ' - pages the agent reads while working on a task are learned into the memory; the switch is on the agent\'s page.');
 
@@ -135,6 +138,8 @@ const env = {
   ...viaProxy,
   DSH_HOME: home, DSH_TELEMETRY_MODE: 'DISABLED', DSH_TELEMETRY_DISABLED: '1',
   RULITH_MEMORY_SERVER: server, RULITH_MEMORY_BASE: base, RULITH_MEMORY_MODEL: model,
+  // (11-24, the owner: the page said 100M under a 10M trial) what the page's context meter measures against
+  RULITH_MEMORY_CONTEXT: String(capacityLimit(local) ?? 100000000),
   // a local server takes any key; pi-ai wants one to be set
   RULITH_MEMORY_KEY: process.env.RULITH_MEMORY_KEY || 'local',
 };

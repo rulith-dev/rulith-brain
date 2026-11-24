@@ -1,88 +1,81 @@
 # Rulith Brain
 
-> **The first release is being prepared.** Downloads will appear under [Releases](../../releases).
+Rulith Brain runs on your Windows PC and keeps a long-term memory you can use across conversations.
+Give it a folder of notes, then open a new chat and ask about something you wrote. Under an answer,
+**Sources** can show the passages Brain drew on. The model, your files and the memory stay on your PC.
 
-Long-term memory for the model on your own PC. Rulith Brain is a Windows desktop app that runs a 125B model on your
-computer with a memory that lasts: what it learns from your folders, from research and from your conversations stays
-with it, and each answer names the documents it drew on. Your data stays on your computer.
+**Version 0.2.0 is released.** Download `Rulith-Brain-Setup-0.2.0.exe` from [GitHub Releases](https://github.com/rulith-dev/rulith-brain/releases).
 
-Rulith Brain - the app and its engine - is closed source: this repository holds none of their source. It is where
-the releases, the licence and the issue tracker live, and it holds the source of **Rulith Brain Agent**, the
-open-source companion agent ([agent/](agent/), MIT). Product page, prices and purchase:
-[rulith.ai/brain.html](https://rulith.ai/brain.html).
+## Install and start
 
-## What it does
+1. Run `Rulith-Brain-Setup-0.2.0.exe`. The setup includes the engine and installs for your Windows account.
+   If Windows SmartScreen appears for the unsigned installer, select **More info** and then **Run anyway**.
+2. Open Rulith Brain. This release supports **Qwen3.8-Flash-Next** in the EXL3 4.05 bpw format.
+   On the **Start** page, download the model (about 107 GB) or select a copy already on your PC. Support for more models is planned.
+3. Start the free 30-day trial and create a memory of up to 10 million tokens. Select **Load the model and start**.
+   Once the model is ready, open **Chat**. The app is available in English and Chinese.
 
-- **Remembers across conversations.** What you discussed before stays in the memory, and a new conversation can draw
-  on it. With **Remember conversations** off (Settings), each new conversation starts without the earlier ones.
-- **Learns in four ways.**
-  - *A folder*: in **Learn**, choose a folder of notes and documents; Brain reads it and keeps up as files are added or
-    changed. Text and Markdown files are read; PDF and Word documents are not read yet.
-  - *Research with Rulith Brain Agent*: with **Learn from research** on, the web pages the agent reads while it works on
-    your tasks are learned into the same memory.
-  - *Conversations*: what you say in **Chat** is learned while **Remember conversations** is on.
-  - *The web, in Chat*: with the **Web** switch on, Brain may search and read web pages for an answer, and keeps what it
-    reads. The search is Wikipedia's (no account, no key) or, chosen under **Settings**, a search address of your own.
-- **Names its sources.** Under an answer, **Sources** lists the documents it drew on.
-- **Makes room by itself.** When the memory is full, it forgets whole documents, the least used first.
-- **Local only.** The model, the memory and your documents stay on your computer. The memory is a folder on your disk:
-  back it up, move it, delete it. No telemetry. Chat's **Web** switch is off until you turn it on; with it on, the
-  words it searches for go to the search service and the pages it reads are fetched from their sites.
+## What Brain can learn
 
-## Getting started
+- **Files and folders.** In **Learn**, choose a folder of plain text or Markdown files. Brain reads the text
+  and picks up additions and changes to the files.
+- **Conversations.** With **Remember conversations** on in **Settings**, Brain can draw on earlier chats.
+  Turn it off to chat without adding those messages to memory.
+- **Web research.** Turn on **Web** in Chat to let Brain search and read pages for an answer. It can learn
+  from the pages it reads. Search uses Wikipedia by default. You can choose your own search service in
+  **Settings**. Search terms go to that service, and Brain fetches pages from their sites.
 
-1. **Install.** Download `Rulith-Brain-Setup-<version>.exe` from [Releases](../../releases) and run it (no
-   administrator rights needed). The app updates itself and installs an update only when its signature verifies.
-2. **Start.** The **Start** page lists what Brain needs and sets each part up: it downloads its engine and the model
-   (about 107 GB; a copy already on this PC can be used), starts the 30-day trial or activates your licence key, and
-   makes a memory. Press **Load the model and start**; loading takes a few minutes.
-3. **Chat, Learn, Settings.** Ask in **Chat**, give it a folder in **Learn**, choose what it remembers in **Settings**.
-   English and Chinese.
+On the **Memory** page you can search for passages and remove the ones you select. When memory fills up,
+Brain makes room for new text by letting older material go, starting with material it has never used.
 
-### Rulith Brain Agent
+## Tested hardware and storage
 
-The companion agent: it works on tasks you give it, opens in your browser, and uses the same memory. Download
-`rulith-brain-agent-<version>.zip` from [Releases](../../releases), unpack it, and run `start.cmd` while Rulith Brain
-is open (Node.js is included). Its switch **Learn from research** is on by default. It searches Wikipedia without an
-account - or a search address of your own - and reads any web page by its address.
+Version 0.2.0 was tested on Windows 11 with an AMD Ryzen AI Max+ 395, Radeon 8060S graphics and 128 GB of
+memory, with 64 GB assigned to graphics in the BIOS. Allow about 107 GB of disk space for the model and
+about 6.5 GB for each million tokens stored. After downloading the model and starting the trial, you can
+chat and learn from local files offline.
 
-The agent is open source under the MIT licence: its source, and how to run it from source, are in [agent/](agent/).
-A preview of it is on the Releases page already; it needs Rulith Brain, whose first release is being prepared.
+## Rulith Brain Agent
 
-## Requirements
+The optional Agent uses the same local model and memory to work on tasks. It can search the web, read a page
+by its address and bring what it reads into the conversation. Start Brain and load the model, then choose
+an Agent download from [GitHub Releases](https://github.com/rulith-dev/rulith-brain/releases).
 
-- AMD Ryzen AI Max+ 395 with Radeon 8060S graphics and 128 GB of memory; Windows 11.
-- Graphics memory set in the BIOS to 64 GB (the setting Brain is tested with).
-- Disk: about 107 GB for the model, and for the memory about 6.5 GB for every million tokens it holds.
-- A connection to download the app, its engine and the model, and once each to start the trial, to activate a licence
-  and to move one. Daily use needs no connection.
-- Brain needs the graphics memory for itself: unload a model another app holds before you start it.
+- **Desktop app.** Run `Rulith-Brain-Agent-Setup-0.2.0.exe` and open Rulith Brain Agent from the Start menu.
+- **Portable version.** Unpack `rulith-brain-agent-0.2.0.zip` and run `start.cmd` to open the Agent in your browser.
+  The zip includes Node.js.
 
-## Licence
+The Agent source and instructions are in the [Agent README](agent/README.md).
 
-A 30-day trial (a memory of up to 10M tokens), then a one-time purchase per device, sized by how much the memory holds
-(10M, 50M, 200M or unlimited tokens). Prices, the sizes on sale, refunds, moving to new hardware and larger sizes:
-[rulith.ai/brain.html](https://rulith.ai/brain.html). The full terms (the end user licence agreement) are published
-here with the first release. Rulith Brain Agent is not under them: it is open source, [MIT](agent/LICENSE).
+## Use Brain from other programs
 
-## Download
+While Brain runs, programs on the same PC can speak to it at `http://127.0.0.1:8091` (the **Start** page shows the
+address). No API key is needed. There are two ways in, each with a path of its own:
 
-From [Releases](../../releases):
+- **Rulith Memory Protocol 1.0** - `POST /v1/brain/chat/completions`. Brain's own protocol: a program sends only
+  what is new, and Brain has the rest. The request has the shape of an OpenAI chat request, so a client library
+  for those works with the base URL `http://127.0.0.1:8091/v1/brain`. The [protocol](protocol/rulith-memory-protocol.md)
+  is short and comes with a small [reference client](protocol/client/) and [conformance tests](protocol/conformance/).
+- **OpenAI-compatible** - `POST /v1/chat/completions`, base URL `http://127.0.0.1:8091/v1`. For programs written
+  for an OpenAI-style server, which send their whole conversation with every request. Brain hears only what
+  follows the last answer in it, so such a program may shorten or summarise its history without Brain reading
+  it again.
 
-| File | |
-|---|---|
-| `Rulith-Brain-Setup-<version>.exe` | the desktop app: install this |
-| `rulith-brain-agent-<version>.zip` | Rulith Brain Agent, the companion agent |
-| `rulith-brain-runtime-<version>.zip` | the app's engine: downloaded by the app itself, nothing to do |
+Rulith Brain Agent speaks to Brain by the Rulith Memory Protocol, on that same path, and by nothing else. What the
+Agent can do with Brain, your own program can do too.
 
-Each release lists SHA-256 checksums.
+Learning from folders, saving, and searching or removing passages are done in the app; they are not offered to
+other programs.
 
-## Support
+## Licence and support
 
-Open an [issue](../../issues) (never post a licence key), or write to contact@rulith.com - for orders, licences and
-refunds with the order number from your receipt and the Device id shown on the app's Start page.
+The free trial covers up to 10 million tokens per memory. Brain also estimates how much memory your computer
+can hold from its available RAM and disk space. For example, on a computer with an estimated capacity of
+40 million tokens, the trial covers the first 10 million. A 50M licence covers growth beyond 10 million,
+up to the roughly 40 million this device can hold. When purchases open, licences will be a one-time purchase per device.
+The app and its engine are covered by the [end user licence agreement](EULA.md).
+The Agent is open source under the [MIT licence](agent/LICENSE). Bundled components are listed in the
+[third-party notices](THIRD-PARTY-NOTICES.md).
 
-## Third-party software
-
-Rulith Brain is built on open-source components under their own licences; see
-[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+Report problems on [GitHub Issues](https://github.com/rulith-dev/rulith-brain/issues).
+For product and purchase information, visit [rulith.ai](https://rulith.ai).

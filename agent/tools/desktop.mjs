@@ -167,6 +167,20 @@ export function desktop(opts = {}) {
   // 3. the shell, the staged folder as its resources; the setup's licence page shows the agent's own licence (MIT)
   const conf = JSON.parse(fs.readFileSync(path.join(APP, 'tauri.conf.json'), 'utf8'));
   const overrides = { version: numeric, bundle: { resources: { [source]: `${INSTALLED}/` }, licenseFile: path.join(stage, 'LICENSE.txt') } };
+  // Authenticode, when a signing identity is set (RULITH_SIGN_SHA1; the signer is the publisher's own script,
+  // RULITH_SIGN_TOOL or tools/sign_files.py of the tree this folder lives in): the staged package's unsigned
+  // executables and native modules here, the shell, the setup and its uninstaller by the bundler
+  if (env.RULITH_SIGN_SHA1 || env.RULITH_SIGN_PFX) {
+    const signer = env.RULITH_SIGN_TOOL ?? path.resolve(AGENT, '..', '..', 'tools', 'sign_files.py');
+    if (!fs.existsSync(signer)) throw new Error(`a signing identity is set and ${signer} is not there (RULITH_SIGN_TOOL)`);
+    const python = env.RULITH_SIGN_PYTHON ?? 'python';
+    const signedStage = spawnSync(python, [signer, stage, '--quiet'], { env, stdio: 'inherit' });
+    if (signedStage.status !== 0) throw new Error('the staged package was not signed');
+    overrides.bundle.windows = { signCommand: { cmd: python, args: [signer, '%1'] } };
+    say('a signing identity is set: the package, the shell, the setup and its uninstaller are signed');
+  } else {
+    say('UNSIGNED: no signing identity (RULITH_SIGN_SHA1) - Smart App Control will block this setup');
+  }
   const target = env.CARGO_TARGET_DIR ?? path.join(APP, 'target');
   const script = path.join(target, 'release', 'nsis', 'x64', 'installer.nsi');
   fs.rmSync(script, { force: true });

@@ -4,26 +4,26 @@
 (() => {
   const zh = /^zh\b/i.test(navigator.language || '');
   const T = zh ? {
-    lang: 'zh-CN', tagline: 'Rulith Brain 的配套智能体',
+    lang: 'zh-CN', tagline: '用 Brain 记住的资料帮你调研、整理文件、完成任务。',
     starting: '正在启动智能体…', startingHelp: '通常只要几秒钟。',
-    down: 'Rulith Brain 还没有运行', downHelp: '请打开 Rulith Brain，点击“加载模型并启动”。Brain 准备好后，智能体会自动继续；使用期间请保持 Brain 应用打开。',
+    down: 'Rulith Brain 还没有运行', downHelp: '打开 Rulith Brain，点击“加载模型并启动”。请保持 Brain 打开，Agent 会自动连接。',
     loading: 'Rulith Brain 正在加载模型', loadingHelp: '需要几分钟，准备好后智能体会自动继续。',
     opening: '已连接 Rulith Brain，正在打开页面…', openingHelp: '',
     ended: '智能体已停止', endedHelp: '下面是它最后说的话。可以再启动一次。',
     again: '重新启动',
-    aboutTitle: '和 Rulith Brain 共用一份记忆',
-    aboutText: '这个智能体没有自己的模型，也没有自己的记忆：它用的是 Rulith Brain 在这台电脑上运行的模型和记忆。你在这里交代和完成的事会被记住，Rulith Brain 应用里的对话也知道。',
+    aboutTitle: '试着交给 Agent 一个任务',
+    aboutText: '如果 Brain 学过你的选型笔记，可以让 Agent 按笔记里的要求查两款产品，把差异整理成表格。Agent 使用 Brain 当前打开的记忆，也能在新的任务中参考它。',
     version: (v) => `版本 ${v}`,
   } : {
-    lang: 'en', tagline: 'The companion agent of Rulith Brain',
+    lang: 'en', tagline: 'Research topics and work with files using what Brain remembers.',
     starting: 'Starting the agent…', startingHelp: 'This usually takes a few seconds.',
-    down: 'Rulith Brain is not running yet', downHelp: 'Open Rulith Brain and press "Load the model and start". The agent goes on by itself when Brain is ready; keep the Brain app open while you use it.',
+    down: 'Rulith Brain is not running yet', downHelp: 'Open Rulith Brain and select “Load the model and start”. Keep Brain open. The agent will connect automatically.',
     loading: 'Rulith Brain is loading the model', loadingHelp: 'This takes a few minutes; the agent goes on by itself when it is ready.',
     opening: 'Connected to Rulith Brain: opening the page…', openingHelp: '',
     ended: 'The agent stopped', endedHelp: 'Below is what it said last. You can start it again.',
     again: 'Start again',
-    aboutTitle: 'One memory, shared with Rulith Brain',
-    aboutText: 'This agent has no model and no memory of its own: it works with the model and the memory that Rulith Brain runs on this PC. What you ask and do here is remembered, and the chat in the Rulith Brain app knows it too.',
+    aboutTitle: 'Give the agent a task',
+    aboutText: 'If Brain has learned your buying criteria, ask the agent to research two products and compare them in a table. It can use the same Brain memory again on your next task.',
     version: (v) => `Version ${v}`,
   };
   const $ = (id) => document.getElementById(id);
@@ -47,6 +47,13 @@
   }
 
   function show(state) {
+    const capacityLine = state.lines.find((line) => line.startsWith('Brain capacity '));
+    if (capacityLine) {
+      try {
+        $('capacity').textContent = JSON.parse(capacityLine.slice('Brain capacity '.length))[zh ? 1 : 0];
+        $('capacity').hidden = false;
+      } catch { /* an older launcher has no capacity summary */ }
+    }
     const ended = state.ended !== null && state.ended !== undefined && !state.running;
     const phase = ended ? 'ended' : state.up ? 'opening' : phaseOf(state.lines);
     $('state-title').textContent = T[phase];

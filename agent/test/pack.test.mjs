@@ -89,7 +89,8 @@ test('README.txt: Rulith Brain\'s app and its address, the user\'s options, no d
   assert.match(text, /Open Rulith Brain and press "Load the model and start"\. Keep the app open/);
   assert.match(text, /default http:\/\/127\.0\.0\.1:8091/);
   assert.match(text, /--learn-research on\|off/);
-  assert.match(text, /"Remember conversations" is set in the Rulith Brain app/);
+  assert.match(text, /lets old, unused material go by itself\. The agent has\s+no tool to remove anything/);
+  assert.doesNotMatch(text, /forget|delet|eras/i);
   for (const dev of ['--front', '--focus-k', '--focus-every', '--brain', '--persona', '--system', '--forwarder-port', 'Inference', ':8080', 'llama-server', '--memory-mode'])
     assert.ok(!text.includes(dev), dev);
   // nor the memory's mechanics ("its window" is the console's)
@@ -215,9 +216,8 @@ test('the way to Rulith Brain: an entry at the sidebar\'s foot opens the agent\'
   assert.equal(ui.introduce(document, { getItem() { throw new Error('no storage'); }, setItem() {} }), false);
   // the page itself begins with what the agent is, in both languages
   const page = fs.readFileSync(path.join(AGENT, 'brain-panel.html'), 'utf8');
-  assert.match(page, /aboutTitle: 'One memory, shared with Rulith Brain'/);
-  assert.match(page, /aboutText: 'This agent has no model and no memory of its own/);
-  assert.match(page, /aboutTitle: '和 Rulith Brain 共用一份记忆'/);
+  assert.match(page, /aboutText: '[^']*compare them in a table[^']*Brain memory/);
+  assert.match(page, /aboutText: '[^']*整理成表格[^']*Brain 当前打开的记忆/);
   fs.rmSync(dir, { recursive: true, force: true });
 });
 

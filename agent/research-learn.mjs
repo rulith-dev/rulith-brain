@@ -1,5 +1,5 @@
 // Learning from research: the pages the agent reads on the web while it works on a task go to the memory's learn
-// queue (POST /v1/memory/learn), so what it researched stays with it as documents - in a turn the memory keeps a tool
+// queue (POST /v1/memory/learn), so what it researched stays with it as text it read - in a turn the memory keeps a tool
 // result's head only after a while. The user sees one switch, "Learn from research" (调研时学习), on by default.
 //
 // What is learned: the results of dsh's web_fetch (@deepseek-ai/dsh-tool-web 0.2.1-alpha.1), known by the tool's name
@@ -22,11 +22,17 @@
 // one: about 40,000 characters of English or 10,000 of Chinese), cut at a paragraph. Its name: "Web: <title>" (else
 // "Web: <url>"); its text begins with the title and "Source: <url>".
 //
-// Each page is learned once a run of the forwarder (by its URL - the one asked for and the one fetched, without the
-// fragment, "www." and tracking parameters - and by a hash of its cleaned text). The request goes out after the turn
-// that carried the page was handed to the server and answered, without waiting for it: nothing here holds a turn up,
-// and a failure is one line in the log. A frozen memory (read-only) is sent nothing; a server that refuses (read-only,
-// memory mode off, no learn queue) is not asked again until the switch is turned off and on.
+// Each page is sent once to a memory (by its URL - the one asked for and the one fetched, without the fragment, "www."
+// and tracking parameters - and by a hash of its cleaned text); a memory is known by its folder (status memory_dir),
+// so another memory gets the page again and the same memory after a restart does not. The request goes out after the
+// turn that carried the page was handed to the server and answered, without waiting for it: nothing here holds a turn
+// up, and a failure is one line in the log. The learn request is bound to the memory the turn went to: its memory_id
+// (protocol 1.0, the same across restarts), else the server run (draft 2's instance) - another answers memory_changed.
+// On a 1.0 server the learn queue is the Rulith Brain app's own: the agent's forwarder offers nothing there (`offered`),
+// the app's page learns through the app. A page sent waits in the learn queue: it counts as learned only once the
+// memory has read it ("done"); one the memory could not read ("failed": full, ...) is sent again when it is read again.
+// A frozen memory (read-only) is sent nothing; a server that refuses (read-only, memory mode off, no learn queue) is
+// not asked again while it serves the same memory in the same mode, or until the switch is turned off and on.
 //
 // No Node imports: like brain-core.mjs, this file could run in a page as well.
 
@@ -40,6 +46,8 @@ export const RESEARCH_DEFAULTS = Object.freeze({
   seen: 20000,         // the URLs and hashes remembered for the dedup
   hosts: 200,          // the sites whose short lines are remembered,
   hostLines: 4000,     //   and how many of them a site
+  memories: 16,        // the memories whose pages are remembered
+  followMs: 3000,      // how often the learn queue is asked about the pages sent (0: only when check() is called)
 });
 
 // dsh-tool-web's web_fetch result (computeFetchOutput, TRUNCATION_FOOTER) and dsh-spill-policy's notice and gap
@@ -301,26 +309,90 @@ export function pageItem(page, { siteLines, limits } = {}) {
 // the refusals that mean this memory does not learn (brain-core's codes; a server without the queue answers 404)
 const REFUSED = new Set(['read_only', 'memory_off', 'text_only']);
 
+/**
+ * Which memory the server serves, from its status as last read: its memory_id (1.0) or its folder (the same across
+ * restarts, so a page learned before a restart is not learned again), else this start of the server (a memory without
+ * a folder is gone when the server stops), else null (not known yet).
+ */
+export function memoryOf(seen) {
+  if (seen?.memory_id) return 'id ' + seen.memory_id;
+  if (seen?.dir) return 'dir ' + String(seen.dir).replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+  return seen?.instance ? 'instance ' + seen.instance : null;
+}
+
+// why the memory did not learn a page, as a word a page can show: it is full, it is read-only, or anything else
+function whyFailed(error) {
+  const e = String(error ?? '');
+  return /memory is full|can be forgotten|nothing to forget/i.test(e) ? 'full' : /read-only/i.test(e) ? 'read_only' : 'failed';
+}
+
+// what a page is told of one page sent
+const shown = (p) => ({ id: p.id, name: p.name, url: p.url, chars: p.chars, at: p.at, state: p.state, why: p.why });
+
 /** Sends what the agent read on the web to the memory's learn queue, once a page; never holds a turn up. */
 export class ResearchLearner {
   /**
-   * @param transport - the forwarder's MemoryTransport: its server, headers, and the mode it last saw.
+   * @param transport - the forwarder's MemoryTransport: its server, headers, and the status it last read.
    * @param research - the switch (default on).
    * @param onChange - called with { research } when the switch is changed (the launcher keeps it).
+   * @param onPage - called with a page sent ({ id, name, url, state, why, ... }) once the memory has read it (state
+   *   'done') or could not (state 'failed', why 'full' | 'read_only' | 'removed' | 'stopped' | 'failed').
    * @param limits - RESEARCH_DEFAULTS to change.
+   * @param offered - a function: false while the server offers this client no learn queue (the agent on a 1.0 server,
+   *   whose queue is the Rulith Brain app's own) - nothing is sent then, and the state says why ('app_only').
    */
-  constructor({ transport, log = () => {}, research = true, onChange, limits = {} }) {
+  constructor({ transport, log = () => {}, research = true, onChange, onPage, limits = {}, offered }) {
     this.transport = transport;
+    this.offered = typeof offered === 'function' ? offered : () => true;
     this.log = log;
     this.research = research !== false;
     this.onChange = onChange;
+    this.onPage = onPage;
     this.limits = { ...RESEARCH_DEFAULTS, ...limits };
-    this.seen = new Set();      // 'url <key>' and 'text <hash>' of the pages sent
-    this.sites = new Map();     // site -> the hashes of its pages' short lines
-    this.recent = [];           // the pages sent, newest first: { id, name, url, chars, at }
-    this.pages = 0;             // the pages sent since the start
-    this.blocked = null;        // { code, message }: the memory refused to learn
+    // what was sent to each memory (memoryOf): { seen: 'url <key>' and 'text <hash>' of its pages, sites: site -> the
+    // hashes of its pages' short lines, recent: the pages sent, newest first, pages: how many it has read }
+    this.memories = new Map();
+    this.memory = null;
+    this.mem = this.bucket(null);
+    this.open = [];             // the pages sent and not read yet: { page (a recent entry), mem, instance, keys, name }
+    this.blocked = null;        // { code, message, memory, instance, mode }: the memory refused to learn
     this.queue = Promise.resolve();
+    this.timer = null;
+    this.misses = 0;
+  }
+
+  bucket(key) {
+    let mem = this.memories.get(key);
+    if (!mem) {
+      mem = { seen: new Set(), sites: new Map(), recent: [], pages: 0 };
+      this.memories.set(key, mem);
+      if (this.memories.size > this.limits.memories) this.memories.delete(this.memories.keys().next().value);
+    }
+    return mem;
+  }
+
+  // what was sent to the memory the server serves now (the app may have switched to another one since)
+  use() {
+    const key = memoryOf(this.transport.seen);
+    if (key === null || key === this.memory) return this.mem;
+    if (this.memory === null && !this.memories.has(key)) {
+      // (what was sent before the memory was known went to this one)
+      this.memories.delete(null);
+      this.memories.set(key, this.mem);
+    } else {
+      this.mem = this.bucket(key);
+    }
+    this.memory = key;
+    return this.mem;
+  }
+
+  // a refusal holds while the server serves the same memory in the same mode: another memory, a server started again
+  // or another mode is asked again
+  refused() {
+    const b = this.blocked;
+    const s = this.transport.seen;
+    if (b && s && (memoryOf(s) !== b.memory || (s.instance ?? null) !== b.instance || s.mode !== b.mode)) this.blocked = null;
+    return this.blocked;
   }
 
   /** Turns the switch: { research: true | false }. Turning it on asks a memory that refused once again. */
@@ -337,9 +409,13 @@ export class ResearchLearner {
    */
   observe(params) {
     if (!this.research) return Promise.resolve([]);
+    // (11-20) the memory the turn went to: what it read is learned there or not at all. Learned later, after the app
+    // had switched the server to another memory, the pages went to that one (an outside review)
+    const s = this.transport.seen;
+    const where = s ? { memory: memoryOf(s), instance: s.instance ?? null, memoryId: s.memory_id ?? null } : null;
     const run = this.queue
       .then(() => new Promise((resolve) => setTimeout(resolve, 0)))   // (after whatever the forwarder does next)
-      .then(() => this.learn(params?.messages))
+      .then(() => this.learn(params?.messages, where))
       .catch((error) => { this.log(`memory agent: learning from research: ${error?.message ?? error}`); return []; });
     this.queue = run;
     return run;
@@ -348,16 +424,23 @@ export class ResearchLearner {
   /** A promise that settles when what was observed so far has been sent (for tests). */
   idle() { return this.queue.then(() => undefined); }
 
-  async learn(messages) {
-    if (!this.research || this.blocked || this.transport.seen?.mode === 'read_only') return [];
+  async learn(messages, where = null) {
+    if (!this.research || this.refused() || this.transport.seen?.mode === 'read_only' || this.offered() === false) return [];
+    // (the server's status read now: the one last seen may be from before a switch)
+    const now = where && typeof this.transport.status === 'function' ? await this.transport.status(true).catch(() => this.transport.seen) : this.transport.seen;
+    if (where && now && (memoryOf(now) !== where.memory || (now.instance ?? null) !== where.instance || (now.memory_id ?? null) !== where.memoryId)) {
+      this.log('memory agent: the server serves another memory (or started again) since these pages were read: not learned');
+      return [];
+    }
+    const mem = this.use();
     const batch = [];
     const taken = new Set();
-    const known = (k) => this.seen.has(k) || taken.has(k);
+    const known = (k) => mem.seen.has(k) || taken.has(k);
     for (const page of readPages(messages)) {
       const urls = [page.url, page.requested].map(urlKey).filter(Boolean).map((k) => 'url ' + k);
       if (urls.some(known)) continue;
       const site = siteOf(page.url ?? page.requested);
-      const item = pageItem(page, { siteLines: this.sites.get(site), limits: this.limits });
+      const item = pageItem(page, { siteLines: mem.sites.get(site), limits: this.limits });
       if (!item || known('text ' + item.hash)) continue;
       const keys = [...urls, 'text ' + item.hash];
       keys.forEach((k) => taken.add(k));
@@ -365,14 +448,23 @@ export class ResearchLearner {
     }
     if (!batch.length) return [];
     // (taken before the answer: the same page read again meanwhile is not sent twice)
-    for (const { keys } of batch) keys.forEach((k) => this.seen.add(k));
+    for (const { keys } of batch) keys.forEach((k) => mem.seen.add(k));
+    const instance = this.transport.seen?.instance ?? null;
     let r;
     try {
-      r = await this.transport.json('/v1/memory/learn', { items: batch.map(({ item }) => ({ name: item.name, text: item.text })) });
+      // (11-20) the server run the pages were read for: the server refuses them for another (memory_changed) in the same
+      // step as it takes them - the status read above can be followed by a switch. (1.0: the memory, by its memory_id;
+      // its instance too where the status names one - queue ids are a run's own)
+      const body = { items: batch.map(({ item }) => ({ name: item.name, text: item.text })) };
+      if (where?.memoryId) body.memory_id = where.memoryId;
+      if (where?.instance) body.instance = where.instance;
+      r = await this.transport.json('/v1/memory/learn', body);
     } catch (error) {
-      for (const { keys } of batch) keys.forEach((k) => this.seen.delete(k));
+      for (const { keys } of batch) keys.forEach((k) => mem.seen.delete(k));
       if (REFUSED.has(error?.code) || error?.status === 404 || error?.status === 501) {
-        this.blocked = { code: error?.status === 404 ? 'not_supported' : error?.code ?? 'server_error', message: String(error?.message ?? error) };
+        const s = this.transport.seen;
+        this.blocked = { code: error?.status === 404 ? 'not_supported' : error?.code ?? 'server_error', message: String(error?.message ?? error),
+          memory: memoryOf(s), instance: s?.instance ?? null, mode: s?.mode };
         this.log(`memory agent: this memory does not learn what the agent reads (${this.blocked.message})`);
       } else {
         this.log(`memory agent: learning from research: ${error?.message ?? error}`);
@@ -381,23 +473,76 @@ export class ResearchLearner {
     }
     const ids = Array.isArray(r?.ids) ? r.ids.map(String) : [];
     const at = new Date().toISOString();
-    batch.forEach(({ item, site }, i) => {
-      this.remember(site, item.keys);
-      this.recent.unshift({ id: ids[i] ?? null, name: item.name, url: item.url, chars: item.text.length, at });
+    batch.forEach(({ item, keys, site }, i) => {
+      // (11-20) the page's short lines count as the site's template once the memory has read it: remembered at once,
+      // a page that failed lost its own paragraphs as "the site's lines" when it was read again (an outside review)
+      // (a page read again after it failed: the new attempt takes the old one's place)
+      mem.recent = mem.recent.filter((p) => p.url !== item.url || p.state !== 'failed');
+      const page = { id: ids[i] ?? null, name: item.name, url: item.url, chars: item.text.length, at, state: 'queued', why: null };
+      mem.recent.unshift(page);
+      // (a server that gives no id cannot be asked about the page: it is taken as read)
+      if (page.id === null) { page.state = 'done'; mem.pages += 1; this.remember(mem, site, item.keys); }
+      else this.open.push({ page, mem, instance, keys, name: item.name, site, lines: item.keys });
     });
-    if (this.recent.length > this.limits.recent) this.recent.length = this.limits.recent;
-    this.pages += batch.length;
-    while (this.seen.size > this.limits.seen) this.seen.delete(this.seen.values().next().value);
+    if (mem.recent.length > this.limits.recent) mem.recent.length = this.limits.recent;
+    while (mem.seen.size > this.limits.seen) mem.seen.delete(mem.seen.values().next().value);
+    this.follow();
     return ids;
   }
 
-  remember(site, keys) {
+  /**
+   * Asks the learn queue how the pages sent are doing: read (done), not read (failed, with the memory's reason; the
+   * page goes again when it is read again), or still waiting.
+   */
+  async check() {
+    const instance = this.transport.seen?.instance ?? null;
+    // pages sent to a server that has started again since: their ids mean nothing now, and what was not read is lost
+    for (const o of this.open.slice()) if (instance && o.instance && o.instance !== instance) this.settle(o, 'failed', 'stopped');
+    const asked = this.open.slice();
+    if (!asked.length) return;
+    const r = await this.transport.json('/v1/memory/learn');
+    const items = new Map((Array.isArray(r?.items) ? r.items : []).map((it) => [String(it?.id), it]));
+    for (const o of asked) {
+      if (!this.open.includes(o)) continue;
+      const it = items.get(o.page.id);
+      if (!it || it.name !== o.name) this.settle(o, 'failed', 'removed');   // (taken out of the queue in the app)
+      else if (it.state === 'done') this.settle(o, 'done');
+      else if (it.state === 'failed') this.settle(o, 'failed', whyFailed(it.error), it.error);
+    }
+  }
+
+  settle(o, state, why = null, error = null) {
+    this.open = this.open.filter((x) => x !== o);
+    Object.assign(o.page, { state, why });
+    if (state === 'done') {
+      o.mem.pages += 1;
+      this.remember(o.mem, o.site, o.lines);   // (11-20: its lines are the site's now)
+    }
+    else {
+      for (const k of o.keys) o.mem.seen.delete(k);
+      this.log(`memory agent: a page was not learned (${o.name}): ${error ?? why}`);
+    }
+    try { this.onPage?.(shown(o.page)); } catch (e) { this.log(`memory agent: ${e?.message ?? e}`); }
+  }
+
+  // while pages wait to be read, the queue is asked every followMs (less often while it does not answer)
+  follow() {
+    if (this.timer || !this.open.length || !(this.limits.followMs > 0)) return;
+    const ms = Math.min(this.limits.followMs * 2 ** this.misses, 60_000);
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      this.check().then(() => { this.misses = 0; }, () => { this.misses = Math.min(this.misses + 1, 5); }).finally(() => this.follow());
+    }, ms);
+    this.timer.unref?.();
+  }
+
+  remember(mem, site, keys) {
     if (!site || !keys?.length) return;
-    let lines = this.sites.get(site);
+    let lines = mem.sites.get(site);
     if (!lines) {
       lines = new Set();
-      this.sites.set(site, lines);
-      if (this.sites.size > this.limits.hosts) this.sites.delete(this.sites.keys().next().value);
+      mem.sites.set(site, lines);
+      if (mem.sites.size > this.limits.hosts) mem.sites.delete(mem.sites.keys().next().value);
     }
     for (const k of keys) lines.add(k);
     while (lines.size > this.limits.hostLines) lines.delete(lines.values().next().value);
@@ -405,11 +550,15 @@ export class ResearchLearner {
 
   /**
    * What a page shows: the switch, whether this memory can learn (null: not known yet - the server is read with the
-   * first message), why not, and the pages sent.
+   * first message), why not, and the pages sent to this memory: how many it has read (pages), how many wait (learning),
+   * how many of the recent ones it could not (failed), and the recent ones with their state.
    */
   state() {
     const mode = this.transport.seen?.mode ?? null;
-    const why = this.blocked?.code ?? (mode === 'read_only' ? 'read_only' : null);
-    return { research: this.research, can_learn: why ? false : mode ? true : null, why, pages: this.pages, recent: this.recent.slice() };
+    const why = this.refused()?.code ?? (this.offered() === false ? 'app_only' : mode === 'read_only' ? 'read_only' : null);
+    const mem = this.use();
+    return { research: this.research, can_learn: why ? false : mode ? true : null, why, pages: mem.pages,
+      learning: this.open.filter((o) => o.mem === mem).length, failed: mem.recent.filter((p) => p.state === 'failed').length,
+      recent: mem.recent.map(shown) };
   }
 }

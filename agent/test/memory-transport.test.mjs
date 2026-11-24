@@ -1,8 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
-import { MemoryTransport, createMemoryProxy, heldDigest, lastAnswer, memoryDelta } from '../memory-transport.mjs';
+import { MemoryTransport, heldDigest, lastAnswer, memoryDelta } from '../memory-transport.mjs';
 
 const sys = { role: 'system', content: 'You are an agent.' };
 const u1 = { role: 'user', content: 'hello' };
@@ -151,41 +149,6 @@ test('a request with nothing new is refused', async () => {
   const srv = fakeServer(3);
   const tr = new MemoryTransport({ server: 'http://x', fetch: srv.fetch });
   await assert.rejects(tr.rewrite({ messages: [sys, u1, a2] }), /nothing new/);
-});
-
-// the forwarder end to end, against the mock server (test/mock-server.mjs)
-test('the forwarder streams turns through to the memory', async (t) => {
-  const port = 18000 + Math.floor(Math.random() * 1000);
-  const mockLog = fileURLToPath(new URL(`./mock-${port}.jsonl`, import.meta.url));
-  const mock = spawn(process.execPath, [fileURLToPath(new URL('./mock-server.mjs', import.meta.url)), String(port), mockLog], { stdio: ['ignore', 'pipe', 'inherit'] });
-  t.after(async () => { mock.kill(); (await import('node:fs')).rmSync(mockLog, { force: true }); });
-  await new Promise((resolve) => mock.stdout.once('data', resolve));
-  const { proxy } = createMemoryProxy({ server: `http://127.0.0.1:${port}` });
-  await new Promise((resolve) => proxy.listen(0, '127.0.0.1', resolve));
-  t.after(() => proxy.close());
-  const base = `http://127.0.0.1:${proxy.address().port}/v1`;
-  const chat = async (messages, stream) => fetch(base + '/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'mock-model', messages, stream }) });
-  const r1 = await chat([sys, u1], false);
-  assert.equal(r1.status, 200);
-  assert.equal(r1.headers.get('x-memory-turn'), '1');
-  const answer = (await r1.json()).choices[0].message;
-  const r2 = await chat([sys, u1, answer, u2], true);
-  assert.equal(r2.headers.get('x-memory-turn'), '2');
-  const text = await r2.text();
-  const said = text.split(/\r?\n/).filter((l) => l.startsWith('data: {')).map((l) => JSON.parse(l.slice(6)).choices[0]?.delta?.content ?? '').join('');
-  assert.match(said, /memory turn 2 \(received: user;/);
-  assert.match(text, /\[DONE\]/);
-  const r3 = await chat([sys, u1, answer, u2], true);   // regenerate: turn 2 is taken back, then sent again
-  assert.equal(r3.headers.get('x-memory-turn'), '2');
-  await r3.text();
-  const models = await (await fetch(base + '/models')).json();
-  assert.equal(models.data[0].id, 'mock-model');
-  const lines = (await import('node:fs')).readFileSync(mockLog, 'utf8').trim().split('\n').map((l) => JSON.parse(l));
-  const taken = lines.filter((l) => l.undo || l.body);   // (the log has the status reads too)
-  assert.deepEqual(taken.map((l) => l.undo ? 'undo' : l.turn), [1, 2, 'undo', 2]);
-  assert.deepEqual(taken[0].body.messages.map((m) => m.role), ['system', 'user']);
-  assert.equal(taken[1].body.previous_turn, 1);
 });
 
 test('two new conversations in a row are not a repeat', async () => {

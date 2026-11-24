@@ -1,6 +1,6 @@
 # Rulith Brain Agent: dsh's web profile (dsh 0.2.1-alpha.1) talking to a Rulith Inference server in memory mode.
 # The server keeps the conversation as one long memory; dsh keeps its own transcript for the page only. One agent, one
-# turn after another: no compaction (the memory forgets on its own), no subagents, no scheduled runs, no title requests
+# turn after another: no compaction (the memory lets old material go by itself when full), no subagents, no scheduled runs, no title requests
 # (every model request becomes part of the memory). dsh's local tools stay.
 # Values come from the launcher's environment (start.mjs), which also runs the forwarder that turns dsh's requests into
 # memory turns (memory-transport.mjs); nothing secret is written here.
@@ -27,8 +27,10 @@
         models:
           - id: !!js process.env.RULITH_MEMORY_MODEL
             name: !!js process.env.RULITH_MEMORY_MODEL
-            # the memory is far larger than any request: dsh never compacts (and no compaction is mounted anyway)
-            contextWindow: 100000000
+            # the memory is far larger than any request: dsh never compacts (and no compaction is mounted anyway). The
+            # page's context meter measures against this figure: what a memory may hold on this computer (the
+            # licence's size - a trial: 10M - no more than the device's estimate; start.mjs), else 100M
+            contextWindow: !!js Number(process.env.RULITH_MEMORY_CONTEXT) || 100000000
             maxTokens: 32768
 
 # the page carries the product's brand, Rulith Brain Agent (rulith-brain-ui: the mark, the name with dsh's credit, the

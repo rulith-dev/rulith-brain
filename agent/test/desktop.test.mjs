@@ -8,6 +8,40 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PLAIN } from '../memory-transport.mjs';
+import { capacityLimit, capacityText, localCapacity } from '../capacity.mjs';
+
+test('the local capacity summary uses the measured device and the current licence, including older trials', (t) => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'rb-capacity-'));
+  t.after(() => fs.rmSync(home, { recursive: true, force: true }));
+  const folder = path.join(home, 'config', 'brain');
+  fs.mkdirSync(folder, { recursive: true });
+  const env = { RULITH_BRAIN_APP_HOME: home };
+  const local = () => localCapacity('http://127.0.0.1:8091', env);
+  assert.deepEqual(local(), { device: null, tier: null });
+  fs.writeFileSync(path.join(folder, 'device.json'), '{"device_max":40000000}');
+  const file = path.join(home, 'licence.txt');
+  fs.writeFileSync(file, 'test');
+  const st = fs.statSync(file, { bigint: true });
+  const keep = (status) => fs.writeFileSync(path.join(folder, 'licence.json'), JSON.stringify({
+    key: [null, null, file, [Number(st.mtimeNs), Number(st.size)]], status: { ok: true, ...status },
+  }));
+  keep({ kind: 'trial', tier: 'trial' });
+  assert.match(capacityText(local(), true), /40M.*试用上限 10M/);
+  keep({ kind: 'paid', tier: '50M' });
+  assert.match(capacityText(local(), false), /40M.*50M/);
+  keep({ kind: 'trial', expires: 1 });
+  assert.equal(local().tier, null);
+  assert.equal(localCapacity('http://example.test:8091', env), null);
+  // what the page's context meter measures against: the licence's size, no more than the device's estimate
+  assert.equal(capacityLimit({ device: 40e6, tier: 'trial' }), 10e6);
+  assert.equal(capacityLimit({ device: 40e6, tier: '50M' }), 40e6);
+  assert.equal(capacityLimit({ device: null, tier: '50M' }), 50e6);
+  assert.equal(capacityLimit({ device: 6e6, tier: '10M' }), 6e6);
+  assert.equal(capacityLimit({ device: 40e6, tier: 'unlimited' }), 40e6);
+  assert.equal(capacityLimit({ device: null, tier: 'unlimited' }), null);
+  assert.equal(capacityLimit({ device: 40e6, tier: null }), null);   // (no licence known: the caller's own figure)
+  assert.equal(capacityLimit(null), null);
+});
 import { APP, DESKTOP, PRODUCT, setupName, crateNotices, resourceSource, installedNames, installFolder, INSTALLED, MAX_PATH,
   PROFILE_NAME, STAGED_PATH_MAX } from '../tools/desktop.mjs';
 
@@ -82,8 +116,13 @@ test('the shell\'s page knows the launcher\'s words, and says the same in both l
   assert.ok(keys(en).length >= 14);
   for (const k of ['starting', 'down', 'loading', 'opening', 'ended']) assert.ok(keys(en).includes(k) && keys(en).includes(`${k}Help`), k);
   // what the agent is: the same words as on the agent's Brain page
-  const about = /aboutText: '(This agent has no model[^']+)'/.exec(page)[1];
-  assert.ok(read(AGENT, 'brain-panel.html').includes(`aboutText: '${about}'`));
+  const panel = read(AGENT, 'brain-panel.html');
+  for (const lang of [zh, en]) {
+    for (const key of ['aboutTitle', 'aboutText']) {
+      const line = lang.split('\n').find((s) => s.trimStart().startsWith(key + ':'));
+      assert.ok(line?.trim() && panel.includes(line.trim()), key);
+    }
+  }
 });
 
 test('the licence texts of the shell\'s crates: crates with the same text together, a crate without one named', () => {

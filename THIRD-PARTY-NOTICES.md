@@ -9,7 +9,7 @@ below are those of version 0.2.0.
 
 ## The runtime (`rulith-brain-runtime-<version>.zip`)
 
-The memory server (`llama-server.exe` and its DLLs) is built from Rulith Inference's fork of llama.cpp with Rulith
+The memory server (`llama-server.exe`, one executable) is built from Rulith Inference's fork of llama.cpp with Rulith
 Brain's closed memory code added. The fork's licence file (`licenses\LICENSE-llama.cpp`) also names Rulith Inference's
 open changes; the closed memory code is not under it.
 
@@ -42,8 +42,13 @@ open changes; the closed memory code is not under it.
     - **zstd** - BSD 3-Clause, Copyright (c) Meta Platforms, Inc. and affiliates.
     - **zlib** 1.3.2 - zlib licence, Copyright (C) 1995-2026 Jean-loup Gailly and Mark Adler.
 
-The rest of ROCm and the Visual C++ and OpenMP runtimes come from the app that runs the server (the Rulith Brain desktop
-app), with that app's notices below.
+- **Microsoft Visual C++ runtime** (`msvcp140*.dll`, `vcruntime140*.dll`, `concrt140.dll` - those the server loads)
+  - the Visual C++ Redistributable, distributed under the Visual Studio licence terms.
+- **LLVM OpenMP runtime** (`libomp140.x86_64.dll`, Microsoft's build, from the Visual C++ redistributable) - Apache
+  License 2.0 with LLVM Exceptions; Microsoft's redistribution terms.
+
+The rest of ROCm (hipBLAS, rocBLAS and hipBLASLt with their kernel libraries, the kernel packs) comes from the app that
+runs the server (the Rulith Brain desktop app), with that app's notices below.
 
 ## The desktop app (`Rulith-Brain-Setup-<version>.exe`)
 

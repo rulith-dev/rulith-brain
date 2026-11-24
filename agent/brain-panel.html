@@ -1,11 +1,11 @@
 <!doctype html>
 <!-- The agent's own page (GET /brain), in the Rulith Brain app's look and words: whether Brain runs (connected, not
-     running, loading the model), the switch "Learn from research", "Remember conversations" (read-only: it is set in
-     the Rulith Brain app; the agent never asks the memory to forget), and the documents the last answer drew on. The
+     running, loading the model), the switch "Learn from research", that conversations are remembered (when full the
+     memory lets old, unused material go by itself; removal is the app's Memory page's, never the agent's), and the passages the last answer drew on. The
      memory's mechanics (mode, KV, windows, the live window, the turn, the session, what joined, lookups, the server's
      error codes) only with ?advanced=1. It reads GET /brain/state every two seconds and, every few seconds, asks the
-     forwarder to ask the server again (?refresh=1); the memory server is asked for the sources of an answer only when
-     they are opened (POST /brain/windows); the switch is POST /brain/settings. English or Chinese by the browser's
+     forwarder to ask the server again (?refresh=1); an answer's sources are what the agent kept of them when the
+     answer ended (turns[].excerpts): nothing is looked up later, when the memory may have changed; the switch is POST /brain/settings. English or Chinese by the browser's
      language. States are words, marks and border styles, never colour alone. -->
 <html lang="en">
 <head>
@@ -62,8 +62,6 @@
   .switch[aria-checked="false"] { border-style: dashed; font-weight: 500; }
   .switch:hover { box-shadow: 0 0 0 3px var(--ring); }
   .switch:disabled { cursor: default; opacity: .7; box-shadow: none; }
-  .ro { display: inline-flex; align-items: center; gap: 6px; border: 1.5px dashed var(--edge); border-radius: 999px; padding: 4px 12px;
-    color: var(--dim); font-size: 13px; white-space: nowrap; }
   .link { background: none; border: none; padding: 0; color: var(--accent-text); font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
   .link:hover { text-decoration: underline; }
   .chev { display: inline-block; transition: transform .15s; }
@@ -91,6 +89,8 @@
   <div id="conn" role="status" aria-live="polite"></div>
 </header>
 <main>
+  <strong id="capacity"></strong>
+  <span class="dim" id="connected-model" hidden></span>
   <section class="card notice" id="notice" hidden><h2 id="notice-title"></h2><p class="dim" id="notice-help"></p></section>
   <section class="card"><h3 id="about-title"></h3><p class="dim" id="about-text"></p></section>
   <section class="card">
@@ -101,10 +101,7 @@
     <div id="learn-more"></div>
   </section>
   <section class="card">
-    <div class="row">
-      <div><h3 id="remember-name"></h3><p class="dim" id="remember-help"></p></div>
-      <span class="ro" id="remember-ro"></span>
-    </div>
+    <h3 id="remember-name"></h3><p class="dim" id="remember-help"></p>
   </section>
   <section class="card">
     <h3 id="last-title"></h3>
@@ -132,14 +129,19 @@ const T = zh ? {
   loading: 'Brain 正在加载模型', loadingHelp: '需要几分钟，准备好后智能体会自动继续。',
   waitBusy: '正在等待 Brain', waitBusyHelp: 'Brain 正在回答另一个对话（比如应用里的提问）。它答完后，智能体会自动继续。',
   noAgent: '智能体没有响应', noAgentHelp: '它的窗口可能已经关闭。重新启动智能体后，请用它启动时显示的地址打开本页。',
-  aboutTitle: '和 Rulith Brain 共用一份记忆',
-  aboutText: '这个智能体没有自己的模型，也没有自己的记忆：它用的是 Rulith Brain 在这台电脑上运行的模型和记忆。你在这里交代和完成的事会被记住，Rulith Brain 应用里的对话也知道。',
-  learnName: '调研时学习', learnHow: '智能体完成任务时阅读的网页会学进记忆。', on: '开', off: '关',
-  readOnly: '这个记忆是只读的，不会学习。', cannot: '这个记忆不能学习。', pages: (n) => `已学习 ${n} 个网页，最新的：`,
-  rememberName: '记住对话', rememberRo: '在应用中设置', rememberHelp: '在 Rulith Brain 应用的“设置”中设置。智能体自己从不要求记忆忘记对话。',
-  rememberCannot: '这个记忆还不能忘记对话：对话总会被记住。', rememberReadOnly: '这个记忆是只读的，不保留对话。',
-  lastTitle: '最近一条回答', lastNone: '还没有回答。', lastFailed: '最近一条消息没有得到回答。', lastWriting: '回答还在生成中。',
-  asked: '问题：', sources: '来源', sourcesReading: '正在读取出处…', sourcesNone: '这条回答没有用到文档。', sourcesFailed: '无法读取出处。',
+  aboutTitle: '试着交给 Agent 一个任务',
+  aboutText: '如果 Brain 学过你的选型笔记，可以让 Agent 按笔记里的要求查两款产品，把差异整理成表格。Agent 使用 Brain 当前打开的记忆，也能在新的任务中参考它。',
+  learnName: '调研时学习', learnHow: '开启后，Agent 会尝试把读到的网页加入可学习的记忆。', on: '开', off: '关',
+  readOnly: '这个记忆是只读的，不会学习。', cannot: '这个记忆不能学习。', appOnly: '代理读到的网页会随对话进入大脑；单独学习它们，请在 Rulith Brain 应用里进行。', pages: (n) => `已学习 ${n} 个网页。`,
+  learning: (n) => `正在学习 ${n} 个网页。`, recentTitle: '最近的网页：', pageLearning: '学习中', pageDone: '已学习',
+  pageFailed: { full: '没有学进去：记忆已满', removed: '没有学进去：已从学习列表中移除', stopped: '没有学进去：Brain 在读完之前停止了',
+    read_only: '没有学进去：这个记忆是只读的', failed: '没有学进去' },
+  retry: '智能体再次读到这些网页时，会重新学习。',
+  rememberName: '对话', rememberHelp: '可写时，Agent 的对话会加入这份记忆。你可以在 Rulith Brain 的“记忆”页查看和管理已保留的内容。',
+  rememberReadOnly: '这个记忆是只读的，不保留对话。',
+  lastTitle: '最近一条回答', lastNone: '还没有回答。', lastFailed: '最近一条消息没有得到回答。', lastLost: '记忆已经收到你的消息，但它的回复没有送达。如果仍需要答案，请再问一次。', lastWriting: '回答还在生成中。',
+  asked: '问题：', sources: '来源', sourcesReading: '正在读取出处…', sourcesNone: '这条回答没有用到记忆中的内容。', sourcesNotKept: '这条回答的出处没有保存下来。再问一次即可查看出处。',
+  passages: (n) => `用到了记忆中的 ${n} 段内容：`, more: (n) => `另有 ${n} 段`,
   // ?advanced=1
   advTitle: '工作原理（高级）', server: (s) => `记忆服务 ${s}`, readAt: (t) => ` · ${t} 读取`, notRead: ' · 尚未读取（随第一条消息读取）',
   mode: '模式', frozen: '冻结（只读）', growing: '增长（更新）', unknown: '未知', brain: 'Brain 模式', brainOff: '关',
@@ -148,7 +150,7 @@ const T = zh ? {
   sessionLine: (n, t, resumed) => `自 ${t} 起 ${n} 轮${resumed ? ' · 由此前的对话重新开始' : ''}`, sessionNone: '还没有对话：下一条消息会开始一个。',
   sessionNew: '下一条消息开始新对话', turnsTitle: '最近几轮调出了什么',
   cols: ['时间', '轮次', '对话', '问题', '调出', '查阅'], none: '无', nothing: '还没有。', failed: '✕ 失败', notFinished: '回答未完成',
-  windows: (n) => `${n} 个窗口`, joined: (n) => `，回答时加入 ${n} 个`, showSources: '出处', noLabel: '（无标签）',
+  windows: (n) => `${n} 个窗口`, joined: (n) => `，回答时加入 ${n} 个`, showSources: '出处', noText: '（文字未保存）', range: (a, b) => `token ${a}–${b}`,
   session: { new: '新对话', continued: '继续', resumed: '重新开始（重读对话）', retaken: '撤回该轮后重问' },
   lastError: (code, message) => `${code} — ${message}`,
 } : {
@@ -158,15 +160,20 @@ const T = zh ? {
   loading: 'Brain is loading the model', loadingHelp: 'This takes a few minutes; the agent goes on by itself when it is ready.',
   waitBusy: 'Waiting for Brain', waitBusyHelp: 'Brain is answering another conversation (a question in the app, for example). The agent goes on by itself when that answer is done.',
   noAgent: 'The agent does not answer', noAgentHelp: 'Its window may have been closed. Start the agent again and open this page from the address it prints.',
-  aboutTitle: 'One memory, shared with Rulith Brain',
-  aboutText: 'This agent has no model and no memory of its own: it works with the model and the memory that Rulith Brain runs on this PC. What you ask and do here is remembered, and the chat in the Rulith Brain app knows it too.',
-  learnName: 'Learn from research', learnHow: 'Pages the agent reads while working on a task are learned into the memory.', on: 'On', off: 'Off',
-  readOnly: 'This memory is read-only: it does not learn.', cannot: 'This memory cannot learn.',
-  pages: (n) => `${n} page${n === 1 ? '' : 's'} learned, the newest:`,
-  rememberName: 'Remember conversations', rememberRo: 'Set in the app', rememberHelp: 'Set in the Rulith Brain app, under Settings. The agent itself never asks the memory to forget.',
-  rememberCannot: 'This memory cannot forget conversations yet: they are always remembered.', rememberReadOnly: 'This memory is read-only: it keeps no conversation.',
-  lastTitle: 'The last answer', lastNone: 'No answer yet.', lastFailed: 'The last message was not answered.', lastWriting: 'The answer is still being written.',
-  asked: 'Asked: ', sources: 'Sources', sourcesReading: 'Reading the sources…', sourcesNone: 'No document was used for this answer.', sourcesFailed: 'The sources could not be read.',
+  aboutTitle: 'Give the agent a task',
+  aboutText: 'If Brain has learned your buying criteria, ask the agent to research two products and compare them in a table. It can use the same Brain memory again on your next task.',
+  learnName: 'Learn from research', learnHow: 'When enabled, the agent tries to add pages it reads to a writable memory.', on: 'On', off: 'Off',
+  readOnly: 'This memory is read-only: it does not learn.', cannot: 'This memory cannot learn.', appOnly: 'The pages the agent reads reach the brain with the conversation; learning them on their own is done in the Rulith Brain app.',
+  pages: (n) => `${n} page${n === 1 ? '' : 's'} learned.`,
+  learning: (n) => `${n} page${n === 1 ? '' : 's'} being learned.`, recentTitle: 'Recent pages:', pageLearning: 'being learned', pageDone: 'learned',
+  pageFailed: { full: 'not learned: the memory is full', removed: 'not learned: removed from the learn list', stopped: 'not learned: Brain stopped before reading it',
+    read_only: 'not learned: this memory is read-only', failed: 'not learned' },
+  retry: 'Pages not learned are learned again when the agent reads them again.',
+  rememberName: 'Conversations', rememberHelp: 'Agent conversations are added when the memory is writable. Open Memory in Rulith Brain to review and manage what it keeps.',
+  rememberReadOnly: 'This memory is read-only: it keeps no conversation.',
+  lastTitle: 'The last answer', lastNone: 'No answer yet.', lastFailed: 'The last message was not answered.', lastLost: 'The memory took your message, but its reply did not arrive. Ask again if you still need the answer.', lastWriting: 'The answer is still being written.',
+  asked: 'Asked: ', sources: 'Sources', sourcesReading: 'Reading the sources…', sourcesNone: 'No passage of the memory was used for this answer.', sourcesNotKept: 'The sources of this answer were not kept. Ask again to see them.',
+  passages: (n) => `${n} passage${n === 1 ? '' : 's'} of the memory:`, more: (n) => `and ${n} more`,
   advTitle: 'How it works (advanced)', server: (s) => `Memory server ${s}`, readAt: (t) => ` · read ${t}`, notRead: ' · not read yet (it is read with the first message)',
   mode: 'Mode', frozen: 'Frozen (read-only)', growing: 'Growing (update)', unknown: 'unknown', brain: 'Brain mode', brainOff: 'Off',
   brainOn: (front, k, every) => `${front === 'kv' ? 'native recall (KV)' : 'source text (skill)'}, ${k} windows, a scan every ${every === 1 ? 'step' : every + ' steps'}`,
@@ -175,7 +182,7 @@ const T = zh ? {
   sessionNone: 'No conversation yet: the next message starts one.', sessionNew: 'Start a new conversation with the next message',
   turnsTitle: 'What the last turns recalled',
   cols: ['Time', 'Turn', 'Conversation', 'Question', 'Recalled', 'Lookups'], none: 'none', nothing: 'Nothing yet.', failed: '✕ Failed', notFinished: 'answer not finished',
-  windows: (n) => `${n} window${n === 1 ? '' : 's'}`, joined: (n) => `, ${n} joined while answering`, showSources: 'Sources', noLabel: '(no label)',
+  windows: (n) => `${n} window${n === 1 ? '' : 's'}`, joined: (n) => `, ${n} joined while answering`, showSources: 'Sources', noText: '(text not kept)', range: (a, b) => `tokens ${a}–${b}`,
   session: { new: 'New conversation', continued: 'Continued', resumed: 'Started again (conversation re-read)', retaken: 'Turn taken back, asked again' },
   lastError: (code, message) => `${code} — ${message}`,
 };
@@ -202,8 +209,9 @@ const num = (n) => n === null || n === undefined ? T.unknown : Number(n).toLocal
 const time = (iso) => new Date(iso).toLocaleTimeString(zh ? 'zh-CN' : undefined);
 // the windows a turn had in front of it: as it ended when the answer said so, else as it began
 const recalled = (t) => [...new Set(t.windows ? [...(t.windows.front || []), ...(t.windows.text || []), ...(t.windows.appended || []), ...(t.windows.kv_added || [])] : (t.focus ? t.focus.ids : []))];
-// a window's label names its document ("<name> (part 2 of 5)" is one long document); a window without one is conversation
-const documentOf = (label) => String(label || '').replace(/ \(part \d+ of \d+\)$/, '').trim();
+// (11-22) a kept source is a passage of the memory - its text (the head the agent kept) and where it lies in the stream
+// ([a, b] in tokens); the memory has no documents, so a passage names none
+const rangeOf = (w) => { const r = Array.isArray(w.range) ? w.range : w.tokens; return Array.isArray(r) && r.length === 2 ? r : null; };
 
 document.documentElement.lang = T.lang;
 $('title').textContent = T.title;
@@ -212,15 +220,13 @@ $('about-text').textContent = T.aboutText;
 $('learn-name').textContent = T.learnName;
 $('learn-how').textContent = T.learnHow;
 $('remember-name').textContent = T.rememberName;
-$('remember-ro').textContent = T.rememberRo;
 $('last-title').textContent = T.lastTitle;
 $('advanced').hidden = !ADVANCED;
 
 let state = null;          // the last /brain/state
 let reachable = true;      // whether the forwarder (this page's own server) answered the last read
-const docs = new Map();    // turn id -> { busy, names, failed }: the documents an answer drew on, once opened
 let openTurn = null;       // the turn whose sources are open
-let advSources = new Map();
+const advOpen = new Set(); // (advanced) the turns whose sources are shown
 
 async function setLearn(on) {
   $('learn-switch').disabled = true;
@@ -230,26 +236,19 @@ async function setLearn(on) {
 }
 $('learn-switch').addEventListener('click', () => { if (state?.learn) void setLearn(!state.learn.research); });
 
-async function sourcesOf(t) {
-  const r = await (await fetch('/brain/windows', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ windows: recalled(t) }) })).json();
-  if (!Array.isArray(r.windows)) throw new Error(r.error ? r.error.message : 'no answer');
-  return r.windows;
+// an answer's sources as the agent kept them when the answer ended (turn.excerpts: { list } or { unverified }; none
+// yet while they are being read): never looked up again, the memory may have changed since
+const hasSources = (t) => recalled(t).length > 0 || (t.sources || []).length > 0;
+const excerptsKey = (t) => t.excerpts ? (t.excerpts.unverified ? 'unverified' : t.excerpts.list.length) : null;
+// the passages among them: how many, and the heads of the ones whose text was kept
+function passagesOf(x) {
+  const total = x.list.length + (x.more || 0);
+  const heads = x.list.map((w) => String(w.text ?? '').replace(/\s+/g, ' ').trim()).filter(Boolean);
+  return { total, heads, rest: total - heads.length };
 }
 
-async function toggleSources(t) {
+function toggleSources(t) {
   openTurn = openTurn === t.id ? null : t.id;
-  if (openTurn !== null && !docs.has(t.id)) {
-    docs.set(t.id, { busy: true });
-    local++;
-    render();
-    try {
-      const count = new Map();
-      for (const w of await sourcesOf(t)) { const n = documentOf(w.label); if (n) count.set(n, (count.get(n) || 0) + 1); }
-      docs.set(t.id, { names: [...count].sort((a, b) => b[1] - a[1]).map(([n]) => n) });
-    } catch {
-      docs.set(t.id, { failed: true });
-    }
-  }
   local++;
   render();
   $('sources-toggle')?.focus();
@@ -281,39 +280,48 @@ function renderLearn() {
   if (!l) return draw($('learn-more'), null, () => []);
   sw.setAttribute('aria-checked', String(!!l.research));
   draw(sw, l.research, () => [h('span', { 'aria-hidden': 'true', text: l.research ? '●' : '○' }), l.research ? T.on : T.off]);
-  draw($('learn-more'), [l.research, l.can_learn, l.why, l.pages, l.recent.slice(0, 5).map((p) => p.name)], () =>
-    l.research && l.can_learn === false ? h('p', {}, mark('off', l.why === 'read_only' ? T.readOnly : T.cannot))
-    : l.research && l.pages ? [h('p', { class: 'dim', text: T.pages(l.pages) }), h('ul', { class: 'list' }, l.recent.slice(0, 5).map((p) => h('li', { text: p.name })))]
+  // (a page counts as learned once the memory has read it; one it could not read says why)
+  const recent = l.recent.slice(0, 5);
+  const pageMark = (p) => p.state === 'failed' ? mark('bad', T.pageFailed[p.why] ?? T.pageFailed.failed)
+    : p.state === 'done' ? mark('on', T.pageDone) : mark('wait', T.pageLearning);
+  draw($('learn-more'), [l.research, l.can_learn, l.why, l.pages, l.learning, recent.map((p) => [p.name, p.state, p.why])], () =>
+    l.research && l.can_learn === false ? h('p', {}, mark('off', l.why === 'read_only' ? T.readOnly : l.why === 'app_only' ? T.appOnly : T.cannot))
+    : l.research && recent.length ? [
+      h('p', { class: 'dim', text: [l.pages ? T.pages(l.pages) : '', l.learning ? T.learning(l.learning) : ''].filter(Boolean).join(' ') || T.recentTitle }),
+      h('ul', { class: 'list' }, recent.map((p) => h('li', {}, h('span', { text: p.name + ' ' }), pageMark(p)))),
+      ...(l.failed ? [h('p', { class: 'dim', text: T.retry })] : [])]
     : []);
 }
 
 function renderRemember() {
   const s = state;
-  $('remember-help').textContent = s?.mode === 'read_only' ? T.rememberReadOnly : s?.seen_at && !s.forgetting?.on ? T.rememberCannot : T.rememberHelp;
+  $('remember-help').textContent = s?.mode === 'read_only' ? T.rememberReadOnly : T.rememberHelp;
 }
 
 function renderLast() {
   const turns = state?.turns || [];
   const t = turns[0];
   if (!t) return draw($('last'), null, () => h('p', { class: 'dim', text: T.lastNone }));
-  draw($('last'), [t.id, t.ok, t.done, recalled(t).length, openTurn], () => lastOf(t));
+  draw($('last'), [t.id, t.ok, t.done, recalled(t).length, excerptsKey(t), openTurn], () => lastOf(t));
 }
 
 function lastOf(t) {
   const out = [];
   if (t.question) out.push(h('div', { class: 'question' }, h('span', { class: 'dim', text: T.asked }), t.question));
-  if (!t.ok) out.push(h('p', {}, mark('bad', T.lastFailed)));
+  if (!t.ok) out.push(h('p', {}, mark('bad', t.error?.code === 'answer_lost' ? T.lastLost : T.lastFailed)));
   else if (!t.done) out.push(h('p', {}, mark('wait', T.lastWriting)));
-  else if (recalled(t).length) {
+  else if (hasSources(t)) {
     const open = openTurn === t.id;
     out.push(h('button', { type: 'button', class: 'link', id: 'sources-toggle', 'aria-expanded': String(open), onclick: () => void toggleSources(t) },
       h('span', { class: 'chev', 'aria-hidden': 'true', text: '›' }), T.sources));
     if (open) {
-      const d = docs.get(t.id) || { busy: true };
-      out.push(d.busy ? h('p', { class: 'dim', text: T.sourcesReading })
-        : d.failed ? h('p', {}, mark('bad', T.sourcesFailed))
-        : d.names.length ? h('ul', { class: 'list' }, d.names.map((n) => h('li', { text: n })))
-        : h('p', { class: 'dim', text: T.sourcesNone }));
+      const x = t.excerpts;
+      const p = x && !x.unverified ? passagesOf(x) : null;
+      out.push(...(!x ? [h('p', { class: 'dim', text: T.sourcesReading })]
+        : x.unverified ? [h('p', {}, mark('off', T.sourcesNotKept))]
+        : p.total ? [h('p', { class: 'dim', text: T.passages(p.total) }),
+          h('ul', { class: 'list' }, p.heads.map((s) => h('li', { text: s })), p.rest > 0 ? h('li', { class: 'dim', text: T.more(p.rest) }) : null)]
+        : [h('p', { class: 'dim', text: T.sourcesNone })]));
     }
   } else out.push(h('p', { class: 'dim', text: T.sourcesNone }));
   return out;
@@ -323,19 +331,21 @@ function lastOf(t) {
 
 function cell(k, ...v) { return h('div', { class: 'card' }, h('div', { class: 'k', text: k }), h('div', { class: 'v' }, ...v)); }
 
-async function advSourcesOf(t) {
-  advSources.set(t.id, h('div', { class: 'dim', text: T.sourcesReading }));
+function advSourcesOf(t) {
+  if (advOpen.has(t.id)) advOpen.delete(t.id); else advOpen.add(t.id);
   local++;
   render();
-  try {
-    const by = new Map();
-    for (const w of await sourcesOf(t)) { const k = w.label || T.noLabel; by.set(k, (by.get(k) || 0) + 1); }
-    advSources.set(t.id, h('ul', { class: 'list' }, [...by].sort((a, b) => b[1] - a[1]).map(([label, n]) => h('li', {}, h('b', { text: `${n} ×` }), label))));
-  } catch (e) {
-    advSources.set(t.id, h('div', {}, mark('bad', T.sourcesFailed), ' ', h('span', { class: 'dim', text: e.message })));
-  }
-  local++;
-  render();
+}
+// a turn's kept sources, passage by passage in the order they came: where each lies in the stream, and its head
+function advSourcesList(t) {
+  const x = t.excerpts;
+  if (!x) return h('div', { class: 'dim', text: T.sourcesReading });
+  if (x.unverified) return h('div', {}, mark('off', T.sourcesNotKept));
+  const rows = x.list.map((w) => {
+    const r = rangeOf(w), text = String(w.text ?? '').replace(/\s+/g, ' ').trim();
+    return h('li', {}, r ? h('b', { class: 'mono', text: T.range(num(r[0]), num(r[1])) + ' ' }) : null, text || h('span', { class: 'dim', text: T.noText }));
+  });
+  return h('ul', { class: 'list' }, rows, x.more > 0 ? h('li', { class: 'dim', text: T.more(x.more) }) : null);
 }
 
 function renderAdvanced() {
@@ -357,19 +367,24 @@ function renderAdvanced() {
     : T.sessionNone);
   $('adv-turns-title').textContent = T.turnsTitle;
   draw($('adv-turns-head'), null, () => T.cols.map((c) => h('th', { text: c })));
-  draw($('adv-turns'), s.turns.map((t) => [t.id, t.ok, t.done, t.lookups, t.windows]), () => s.turns.length ? s.turns.map((t) => {
+  draw($('adv-turns'), s.turns.map((t) => [t.id, t.ok, t.done, t.lookups, t.windows, excerptsKey(t), advOpen.has(t.id)]), () => s.turns.length ? s.turns.map((t) => {
     const ids = recalled(t);
     return h('tr', {},
       h('td', { class: 'n', text: time(t.at) }), h('td', { class: 'n', text: t.turn ?? '' }),
       h('td', {}, t.ok ? (T.session[t.session] || t.session) : [h('b', { text: T.failed }), h('br'), h('span', { class: 'dim mono', text: t.error?.code ?? '' })]),
       h('td', { text: t.question }),
       h('td', {}, ids.length ? [h('b', { text: T.windows(ids.length) }), h('span', { class: 'dim', text: ` (${t.front === 'kv' ? 'KV' : 'text'}${t.windows?.kv_added?.length ? T.joined(t.windows.kv_added.length) : ''})` }),
-        h('button', { type: 'button', class: 'small', onclick: () => void advSourcesOf(t), text: T.showSources }), advSources.get(t.id) ?? null] : t.ok ? h('span', { class: 'dim', text: T.none }) : null),
+        h('button', { type: 'button', class: 'small', onclick: () => advSourcesOf(t), text: T.showSources }), advOpen.has(t.id) ? advSourcesList(t) : null] : t.ok ? h('span', { class: 'dim', text: T.none }) : null),
       h('td', { class: 'n' }, t.lookups ? String(t.lookups.lookups) : t.ok && !t.done ? h('span', { class: 'dim', text: T.notFinished }) : ''));
   }) : h('tr', {}, h('td', { colspan: 6, class: 'dim', text: T.nothing })));
 }
 
 function render() {
+  $('capacity').textContent = state?.capacityText?.[zh ? 'zh' : 'en'] ?? '';
+  const name = state?.model;
+  const modelLine = $('connected-model');
+  modelLine.hidden = !name || !reachable || state?.reach?.state !== 'up';
+  modelLine.textContent = name ? (zh ? '连接时 Brain 提供的模型 · ' : 'Model supplied by Brain at connection · ') + name : '';
   renderConn();
   renderLearn();
   renderRemember();

@@ -1,31 +1,38 @@
-// The loopback forwarder: an OpenAI client's requests (dsh's, or any other's), sent to Rulith Brain's memory server as
-// one turn at a time of the Rulith Memory Protocol. The turn logic - what is cut, the conversation each transcript goes
+// The loopback forwarder: an OpenAI client's requests (dsh's, or any other's), sent to Rulith Brain's memory server -
+// on a server of the Rulith Memory Protocol 1.0 as requests without context to its public POST /v1/brain/chat/completions
+// (only what is new; nothing else of the server is used: no status, no learning, no sources - those are the Rulith
+// Brain app's own), on a server from before it as one turn at a time of draft 2. The turn logic - what is cut, the conversation each transcript goes
 // on in, when a turn is taken back (and what happens when the server cannot take it back any more), waiting while
 // another conversation is answered, brain mode - is brain-core.mjs, shared with Rulith Brain's own page
 // (integrations/brain-ui) and the Rulith Inference app's chat.
 //
-//   POST /v1/chat/completions   one chat request -> one memory turn (<server>/v1/memory/input), streamed or not. The
+//   POST /v1/chat/completions   one chat request -> one request to the brain (1.0: <server>/v1/brain/chat/completions; draft 2:
+//                               one memory turn, <server>/v1/memory/input), streamed or not. The
 //                               answer carries the server's X-Memory-Turn, X-Memory-Focus, X-Brain-Append and
-//                               X-Memory-Recall, and X-Brain-Session: new | continued | resumed | retaken.
+//                               X-Memory-Recall (draft 2), and X-Brain-Session: new | continued | resumed | retaken
+//                               (draft 2) | again (1.0: a request repeated, heard again).
 //                               The transcript's name, when the client has one: the header X-Brain-Conversation.
 //                               A turn that meets another conversation's answer in the app waits for it (busyWaitMs,
 //                               15 minutes: a tool result must not be lost to a long answer there)
 //   GET  /v1/models             passes through
 //   GET  /brain/state           what a page shows: the server as last seen, the settings, the conversations, the last
-//                               turns, and "reach": whether the server answered when it was last asked - up, loading (it
+//                               turns (each with the excerpts of its sources, read when its answer ended), and "reach": whether the server answered when it was last asked - up, loading (it
 //                               answers 503 while it loads its model), down (?refresh=1 asks the server again)
 //   POST /brain/windows         {"windows": [w, ...]} -> the label and source text of memory windows (what a turn
-//                               recalled), from the server's /v1/memory/windows
+//                               recalled), from the server's /v1/memory/windows (draft 2; on 1.0 an empty list)
 //   POST /brain/sources         {"ids": [...]} -> the passages an answer drew on, from the server's /v1/memory/sources
+//                               (draft 2; on 1.0 an empty list)
 //   POST /brain/session/new     the next request opens a new conversation (the agent's earlier ones end)
 //   POST /brain/settings        {"learn_research": true | false}: the switch "Learn from research"
 //   GET  /brain                 a small page of the above
 //
 // Learning from research (research-learn.mjs): once a turn has been answered, the web pages among its new tool results
-// (what the agent opened with web_fetch) go to the memory's learn queue, each once; nothing waits for that.
+// (what the agent opened with web_fetch) go to the memory's learn queue, each once; nothing waits for that. Draft 2
+// only: on a 1.0 server the pages reach the brain as the tool results they are, and its learn queue is the app's.
 import http from 'node:http';
-import { MemoryTransport, MemoryError, errorFrom } from './brain-core.mjs';
+import { MemoryTransport, MemoryError, errorFrom, takeExcerpts } from './brain-core.mjs';
 import { ResearchLearner } from './research-learn.mjs';
+import { localCapacity, capacityText } from './capacity.mjs';
 
 export * from './brain-core.mjs';
 export * from './research-learn.mjs';
@@ -33,11 +40,12 @@ export * from './research-learn.mjs';
 // how long a turn waits while the app's own chat (another conversation) is being answered
 export const AGENT_BUSY_WAIT_MS = 15 * 60 * 1000;
 
-const HTTP_OF = { server_down: 502, loading: 503, turn_in_flight: 503, memory_off: 409, one_slot: 409, brain_unavailable: 409, brain_invalid: 409, memory_load: 500 };
+const HTTP_OF = { server_down: 502, loading: 503, turn_in_flight: 503, busy: 503, memory_off: 409, one_slot: 409, brain_unavailable: 409, brain_invalid: 409, memory_load: 500, answer_lost: 409 };
 // what the agent's page and its user are told when Rulith Brain does not answer (the server's own words go to the log)
 export const PLAIN = {
   down: 'Rulith Brain is not running. Open Rulith Brain and press "Load the model and start"; keep the app open while you use the agent.',
   loading: 'Rulith Brain is loading the model. This takes a few minutes; the agent goes on when it is ready.',
+  answer_lost: 'The memory took your message, but its reply did not arrive. Ask again if you still need the answer.',
 };
 const reachOf = (error) => (error?.code === 'loading' ? 'loading' : error?.code === 'server_down' ? 'down' : null);
 
@@ -49,8 +57,9 @@ const sleep = (ms, signal) => new Promise((resolve) => {
 /**
  * Waits until Rulith Brain's memory server answers with its model loaded: while nothing listens at `server`, or it
  * answers 503 (the model is loading), it says so once in plain words (`log`) and asks again every `every` ms. A server
- * that answers but cannot serve the agent (no memory mode, a key it refuses) ends the wait with a MemoryError.
- * @returns { status, model } - the server's status and the id of its model.
+ * that answers but cannot serve the agent (no memory mode, a key it refuses) ends the wait with a MemoryError. A 1.0
+ * server shows its status only to the Rulith Brain app (403): its models list (GET /v1/models) is all the agent asks.
+ * @returns { status, model } - the server's status (null from a 1.0 server that keeps it) and the id of its model.
  */
 export async function waitForServer({ server, headers = {}, fetch: f = globalThis.fetch, log = () => {}, every = 3000, signal } = {}) {
   const base = String(server).replace(/\/+$/, '');
@@ -63,7 +72,9 @@ export async function waitForServer({ server, headers = {}, fetch: f = globalThi
     const text = await r.text();
     if (!r.ok) {
       const error = errorFrom(`memory server ${path}`, r.status, text);
-      if (r.status === 401 || r.status === 403) error.code = 'auth';
+      // (a 1.0 server's status is the Rulith Brain app's: 403 there is not a key it refuses)
+      if (r.status === 403 && path === '/v1/memory/status') error.code = 'app_only';
+      else if (r.status === 401 || r.status === 403) error.code = 'auth';
       else if (r.status === 404) error.code = 'memory_off';
       throw error;
     }
@@ -73,7 +84,12 @@ export async function waitForServer({ server, headers = {}, fetch: f = globalThi
     if (signal?.aborted) throw new MemoryError('stopped while waiting for the memory server', { code: 'server_down' });
     let state;
     try {
-      const status = await get('/v1/memory/status');
+      let status = null;
+      try {
+        status = await get('/v1/memory/status');
+      } catch (error) {
+        if (error?.code !== 'app_only') throw error;
+      }
       if (status?.memory_mode === false) throw new MemoryError('memory mode is off', { code: 'memory_off' });
       const model = (await get('/v1/models'))?.data?.[0]?.id;
       if (model) {
@@ -103,10 +119,15 @@ const NAME = { 'x-memory-turn': 'X-Memory-Turn', 'x-memory-focus': 'X-Memory-Foc
  * @param busyWaitMs - how long a turn waits for another conversation's answer, or for the model to load.
  * @returns { proxy, transport, learner }.
  */
-export function createMemoryProxy({ server, log = () => {}, fetch: f = globalThis.fetch, brain = {}, headers = {}, panel, learn = {},
+export function createMemoryProxy({ server, model = null, log = () => {}, fetch: f = globalThis.fetch, brain = {}, headers = {}, panel, learn = {},
   busyWaitMs = AGENT_BUSY_WAIT_MS }) {
-  const transport = new MemoryTransport({ server, log, fetch: f, brain, headers, idPrefix: 'agent', busyWaitMs });
-  const learner = new ResearchLearner({ transport, log, research: learn.research !== false, onChange: learn.onChange, limits: learn.limits });
+  // (a turn's sources are read once its answer has ended, and kept with the turn as excerpts: the page shows those,
+  // never the same ids read again later against a memory that may have changed since - brain-core takeExcerpts)
+  // (1.0: the server's sources and learn queue are the Rulith Brain app's own - the agent uses neither)
+  const transport = new MemoryTransport({ server, log, fetch: f, brain, headers, idPrefix: 'agent', busyWaitMs,
+    onTurn: (entry) => { if (entry.ok && !transport.seen?.v1) void takeExcerpts(transport, entry).then((x) => { entry.excerpts = x; }); } });
+  const learner = new ResearchLearner({ transport, log, research: learn.research !== false, onChange: learn.onChange, limits: learn.limits,
+    offered: () => transport.seen?.v1 !== true });
   // whether the server answered when it was last asked: { state: 'up' | 'loading' | 'down' | null, at }
   let reach = { state: null, at: null };
   const saw = (state) => { if (state) reach = { state, at: new Date().toISOString() }; };
@@ -119,7 +140,8 @@ export function createMemoryProxy({ server, log = () => {}, fetch: f = globalThi
     const code = error instanceof MemoryError ? error.code : 'forwarder_error';
     const status = HTTP_OF[code] ?? (error?.status >= 400 ? error.status : 400);
     // (Rulith Brain not running, or loading its model: said in plain words to the agent's user; the log has the rest)
-    const plain = PLAIN[reachOf(error)];
+    // (and a message the memory took whose reply was lost: it is not sent again by itself)
+    const plain = PLAIN[reachOf(error)] ?? (code === 'answer_lost' ? PLAIN.answer_lost : undefined);
     json(res, status, { error: { message: plain ?? String(error?.message ?? error), type: 'memory_agent', code } });
   };
   const proxy = http.createServer((req, res) => {
@@ -136,10 +158,19 @@ export function createMemoryProxy({ server, log = () => {}, fetch: f = globalThi
           res.end(await r.text());
           return;
         }
+        if (req.method === 'GET' && path === '/brain/capacity') {
+          const zh = url.searchParams.get('lang') === 'zh';
+          const summary = capacityText(localCapacity(server), zh);
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+          // Only fixed translations and validated numbers/plan names enter the compact sidebar view.
+          res.end(`<!doctype html><html lang="${zh ? 'zh-CN' : 'en'}"><meta charset="utf-8"><meta http-equiv="refresh" content="60"><style>:root{color-scheme:light dark}body{margin:0;font:600 13px/1.45 system-ui;color:CanvasText}</style><body>${summary}</body></html>`);
+          return;
+        }
         if (req.method === 'GET' && path === '/brain/state') {
           if (url.searchParams.get('refresh') === '1')
             await transport.serial(() => transport.status(true)).then(() => saw('up'), (e) => { transport.failed(e); saw(reachOf(e)); });
-          return json(res, 200, { ...transport.state(), reach, learn: learner.state() });
+          const capacity = localCapacity(server);
+          return json(res, 200, { ...transport.state(), model, reach, learn: learner.state(), capacityText: { en: capacityText(capacity, false), zh: capacityText(capacity, true) } });
         }
         if (req.method === 'POST' && path === '/brain/settings') {
           // (JSON only: a page of another site cannot send that without asking first, and nothing here answers it)
@@ -154,11 +185,13 @@ export function createMemoryProxy({ server, log = () => {}, fetch: f = globalThi
         if (req.method === 'POST' && path === '/brain/windows') {
           const asked = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}').windows;
           if (!Array.isArray(asked)) return json(res, 400, { error: { message: '"windows": an array of window numbers', type: 'memory_agent', code: 'bad_request' } });
+          if (transport.seen?.v1) return json(res, 200, { windows: [], offered: false });
           return json(res, 200, { windows: await transport.windows(asked.slice(0, 256)) });
         }
         if (req.method === 'POST' && path === '/brain/sources') {
           const asked = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}').ids;
           if (!Array.isArray(asked)) return json(res, 400, { error: { message: '"ids": an array of source ids', type: 'memory_agent', code: 'bad_request' } });
+          if (transport.seen?.v1) return json(res, 200, { sources: [], offered: false });
           return json(res, 200, { sources: await transport.sources(asked.slice(0, 256)) });
         }
         if (req.method === 'POST' && path === '/brain/session/new') { transport.newSession(); return json(res, 200, { ok: true }); }

@@ -2,7 +2,7 @@
   "name": "rulith-memory-agent",
   "version": "0.2.0",
   "private": true,
-  "description": "Rulith Brain Agent: a dsh (DeepSeek Harness) web agent for a Rulith Inference server in memory mode (Rulith Brain): one agent, one long memory",
+  "description": "Companion agent for the local Rulith Brain app and its memory.",
   "license": "MIT",
   "type": "module",
   "bin": {
@@ -13,7 +13,7 @@
   },
   "scripts": {
     "start": "node start.mjs",
-    "test": "node --test test/memory-transport.test.mjs test/brain.test.mjs test/research.test.mjs test/pack.test.mjs test/web-search.test.mjs test/desktop.test.mjs",
+    "test": "node --test \"test/*.test.mjs\"",
     "desktop": "node tools/desktop.mjs",
     "package": "node tools/pack.mjs"
   },

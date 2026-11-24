@@ -77,7 +77,7 @@ export function legalProblems(text, name) {
   return found;
 }
 // the agent's own files, as they go into app/
-export const APP_FILES = ['start.mjs', 'memory-transport.mjs', 'brain-core.mjs', 'research-learn.mjs', 'system-proxy.mjs', 'brain-panel.html', 'memory-agent.cordis.yml',
+export const APP_FILES = ['start.mjs', 'capacity.mjs', 'memory-transport.mjs', 'brain-core.mjs', 'research-learn.mjs', 'system-proxy.mjs', 'brain-panel.html', 'memory-agent.cordis.yml',
   'rulith-brain-ui', 'rulith-brain-web'];
 const DSH = '@deepseek-ai/dsh';
 // not needed to run: type declarations and source maps
@@ -139,6 +139,13 @@ export const BRAND_PATCHES = [
   { file: '@deepseek-ai/dsh-web-frontend/dist/assets/index-*.js', from: '.wordmark,"HARNESS")', to: '.wordmark,"RULITH BRAIN")' },
   // the tab's title as dsh writes it (rulith-brain-ui rewrites it as well, for a run from the source tree)
   { file: '@deepseek-ai/dsh-client-ui-layout/lib/client.js', from: 'const productTitle = "DeepSeek Harness";', to: 'const productTitle = "Rulith Brain Agent";' },
+  // The first task screen explains why the agent uses Brain, including after the welcome panel is dismissed.
+  { file: '@deepseek-ai/dsh-client-ui-conversation/lib/client.js', from: '"hero.headline": "探索未至之境"', to: '"hero.headline": "用项目记忆完成任务"' },
+  { file: '@deepseek-ai/dsh-client-ui-conversation/lib/client.js', from: '"hero.headline": "Into the Unknown"', to: '"hero.headline": "Work with your project’s memory"' },
+  { file: '@deepseek-ai/dsh-client-ui-conversation/lib/client.js', from: '"placeholder.hero": "描述你想要构建的内容, / 调用指令, @ 文件或对话"',
+    to: '"placeholder.hero": "例如：按上次定下的要求，对比这两款产品，整理成表格。输入 @ 引用文件，/ 查看指令。"' },
+  { file: '@deepseek-ai/dsh-client-ui-conversation/lib/client.js', from: '"placeholder.hero": "Describe what you want to build, / commands, @ files or sessions"',
+    to: '"placeholder.hero": "Try: Compare these two products against our earlier requirements. Use @ for files or / for commands."' },
   // the Chinese page's "working" line puns on DeepSeek's Chinese name (深度求索); the English one says "Deep diving"
   { file: '@deepseek-ai/dsh-client-ui-chat/lib/client.js', from: '"chat.deepDiving": "深度求索中"', to: '"chat.deepDiving": "深度探索中"' },
   { file: '@deepseek-ai/dsh-client-ui-chat/lib/client.js', from: '"chat.deepDivingFor": "深度求索中，', to: '"chat.deepDivingFor": "深度探索中，' },
@@ -236,8 +243,8 @@ Options (after the address):
   --home <folder>           where the agent keeps its own files (see below)
   --port N, --no-open       the page's port, and not opening the browser
 
-"Remember conversations" is set in the Rulith Brain app (Settings); the agent itself never asks the memory to
-forget a conversation.
+Conversations are remembered. When the memory is full, it lets old, unused material go by itself. The agent has
+no tool to remove anything from the memory; the Rulith Brain app's Memory page has one.
 
 Web search
 ----------
@@ -636,8 +643,8 @@ export function pack(opts = {}) {
   fs.mkdirSync(path.join(stage, 'app'), { recursive: true });
   for (const f of APP_FILES) fs.cpSync(path.join(AGENT, f), path.join(stage, 'app', f), { recursive: true });
   fs.writeFileSync(path.join(stage, 'app', 'package.json'), `${JSON.stringify({
-    name: 'rulith-brain-agent', version, private: true, description: 'Rulith Brain Agent: DeepSeek Harness\'s web app on a Rulith Brain server',
-    license: 'UNLICENSED', type: 'module', engines: agentPkg.engines, dependencies: { [DSH]: pin },
+    name: 'rulith-brain-agent', version, private: true, description: agentPkg.description,
+    license: agentPkg.license, type: 'module', engines: agentPkg.engines, dependencies: { [DSH]: pin },
   }, null, 2)}\n`);
 
   // dsh and what it needs

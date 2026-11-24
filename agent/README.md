@@ -1,38 +1,27 @@
 # Rulith Brain Agent
 
-The companion agent of [Rulith Brain](../README.md): one agent with one long memory that stays with it across days,
-sessions and restarts. It works on the tasks you give it, shows its own page in your browser, and uses the same memory
-as the Rulith Brain app.
-
-It is open source (MIT). It is DeepSeek Harness (dsh, the npm package `@deepseek-ai/dsh`, MIT) with its web app, plus a
-small forwarder that sends each turn to the memory instead of the whole conversation.
-
-> **Preview.** The agent needs a running Rulith Brain, and Rulith Brain's first release is still being prepared. Until
-> then the agent has nothing to connect to: this preview is here for reading, for building on, and for the day Brain
-> is out.
+Rulith Brain Agent works on tasks you give it using the model and memory on your PC. Open it in its own
+desktop window or use the portable version in your browser. Both connect to [Rulith Brain](../README.md).
 
 ## What it does
 
-- **One memory.** The agent does not send its whole conversation with every request. Rulith Brain keeps the
-  conversation itself; the agent sends each turn's new messages only, and Brain recalls what the turn needs.
-- **Shares it with the app.** What you told the app's chat, the agent knows; what the agent worked out, the chat knows.
-- **Learns from research.** With **Learn from research** on (the default), the web pages the agent reads while it works
-  are learned into the memory, so they are there the next time without the web.
-- **Searches without an account.** Its web search is Wikipedia's own search interface: no API key, nothing to sign up
-  for. Any page of the web is read by its address. Behind a proxy that Windows is set to use, the agent follows it.
-- **Or with a search address of your own.** A SearXNG instance by its address: see [Web search](#web-search).
-- **Says what it works with.** **Rulith Brain** at the foot of the page's sidebar opens the agent's own Brain page:
-  whether Brain runs, the switch Learn from research, and the documents the last answer drew on.
+- **Work across conversations.** The Agent sends new messages and task results to Brain. Later conversations
+  in the Agent or in Brain's Chat can draw on the same memory.
+- **Research a question.** The Agent can search Wikipedia without an account, read a web page by its address
+  and use the passages it finds in its answer. You can also choose your own search service.
+- **Check the connection.** Select **Rulith Brain** at the foot of the sidebar to see whether Brain is ready.
 
 ## Get it
 
-**Windows package** (nothing else to install: Node.js is included): download `rulith-brain-agent-<version>.zip` from
-[Releases](../../../releases), unpack it into a folder with a short path, and run `start.cmd` while Rulith Brain is open.
+Start Rulith Brain and load its model. Choose a Windows download from [GitHub Releases](https://github.com/rulith-dev/rulith-brain/releases).
 
-**As a desktop app** (a setup, a Start-menu entry, a window of its own instead of a console window and a browser
-tab): no setup is published yet; it is built from source with `npm run desktop` (below).
+- **Desktop app.** Run `Rulith-Brain-Agent-Setup-0.2.0.exe`, then open Rulith Brain Agent from the Start menu.
+- **Portable version.** Unpack `rulith-brain-agent-0.2.0.zip` into a folder with a short path. Run `start.cmd`
+  to open the Agent in your browser. Node.js is included.
 
-**From source** (Node.js 22.19 or newer):
+### Run from source
+
+With Node.js 22.19 or newer, run these commands from the root of this repository.
 
 ```
 cd agent
@@ -40,58 +29,67 @@ npm install
 npm start
 ```
 
-Rulith Brain listens at `http://127.0.0.1:8091` by default. Another address goes first:
-`npm start -- http://<address>:<port>`. A Brain started with an API key: set `RULITH_MEMORY_KEY` to the same key.
+Rulith Brain listens at `http://127.0.0.1:8091` by default. To choose another address, run
+`npm start -- http://<address>:<port>`. If Brain uses an API key, set `RULITH_MEMORY_KEY` to that key.
 
-| Option | |
+| Option | What it controls |
 |---|---|
 | `--learn-research on\|off` | Learn from research (default on). The same switch is on the agent's own page. |
-| `--home <folder>` | where the agent keeps its own files: its dsh profile and the page's transcripts (default `~/.rulith-brain-agent`) |
-| `--port N`, `--no-open` | the page's port, and not opening the browser |
+| `--home <folder>` | Folder for the Agent's profile and transcripts (default `~/.rulith-brain-agent`). |
+| `--port N`, `--no-open` | Set the page's port or leave the browser closed at startup. |
 
-While Brain is not running yet, or is still loading its model, the agent says so and waits for it.
+The Agent waits for Brain to start and finish loading its model.
 
 ## Web search
 
-| `RULITH_BRAIN_SEARCH` | | needs |
+| `RULITH_BRAIN_SEARCH` | Search service | Configuration |
 |---|---|---|
-| `wikipedia` (the default) | Wikipedia's own search interface; a query in Chinese asks the Chinese edition first | nothing |
-| `searxng` | a SearXNG instance that you run, or trust, with its JSON format switched on | its address: `RULITH_BRAIN_SEARXNG_URL` |
+| `wikipedia` (the default) | Wikipedia. A query in Chinese searches the Chinese edition first. | Ready to use |
+| `searxng` | A SearXNG instance with JSON results enabled. | Set `RULITH_BRAIN_SEARXNG_URL` to the instance address. |
 
-With none of these variables set, the agent follows the search service chosen in the Rulith Brain app on the same PC
-(Settings, Web search): it reads the app's settings file at each search and writes nothing to it. A variable goes
-before the app's setting. The searches of the second service go to the address you gave. The result pages of search
-engines are not read.
+By default the Agent uses the search service selected under **Settings** in Rulith Brain. The environment
+variables above override that choice for the Agent. Queries go to the selected service.
 
 ## What it keeps where
 
-- The memory is Rulith Brain's: the agent keeps no copy of it.
-- The agent's own files: `~/.rulith-brain-agent`, or `--home`.
-- The page and the forwarder listen on this computer only (127.0.0.1); the address printed at start carries the page's key.
-- No licence key, password or API key is stored in its files.
+Rulith Brain manages the memory. The Agent keeps its profile and transcripts in `~/.rulith-brain-agent`
+or the folder you choose with `--home`. Its page and forwarder listen on `127.0.0.1`. The address
+printed at startup includes the page's access key.
+
+## How it speaks to Brain
+
+The Agent has no channel of its own. It speaks to Brain by the
+[Rulith Memory Protocol](../protocol/rulith-memory-protocol.md), on the path Brain offers to every program for it,
+`POST /v1/brain/chat/completions` (with `GET /v1/brain/models`): it sends what is new in a conversation, and Brain
+has the rest. What the Agent can do with Brain, any other program can do the same way.
 
 ## How it is made
 
-| | |
+| File or folder | Role |
 |---|---|
-| `start.mjs` | the launcher: finds Brain, starts the forwarder and dsh's web app |
-| `memory-transport.mjs` | the forwarder: an OpenAI-style endpoint on the loopback interface that dsh's model points at |
-| `brain-core.mjs` | the turn logic, with no Node imports: a chat request cut down to one turn of the memory |
-| `research-learn.mjs` | the pages read on the web, cleaned and sent to the memory to be learned |
+| `start.mjs` | Finds Brain and starts the local forwarder and the Agent's web interface. |
+| `memory-transport.mjs` | Forwards chat requests from the Agent to Brain. |
+| `brain-core.mjs` | Prepares each turn for Brain and handles its response. |
+| `capacity.mjs` | Reads the device estimate and the licence size Rulith Brain keeps on this PC, for the capacity line and the page's context meter. |
+| `research-learn.mjs` | Cleans the pages read on the web for a Brain that offers programs a learn queue. Rulith Brain 0.2.0 offers none: the pages are part of the conversation. |
 | `system-proxy.mjs` | Windows' proxy setting, handed to the agent's process |
 | `rulith-brain-web/` | the web search (Wikipedia, a SearXNG address) as a search provider for dsh |
 | `rulith-brain-ui/` | the page's name and mark |
-| `brain-panel.html` | the agent's own page: whether Brain runs, the switches, what the last answer drew on |
+| `brain-panel.html` | Shows the connection to Brain, settings and available source passages. |
 | `memory-agent.cordis.yml` | the changes to dsh's web profile |
-| `test/` | the tests, and `mock-server.mjs`: a stand-in for Rulith Brain's memory server, for trying the agent without a model |
+| `test/` | Agent tests and their fixtures |
 | `tools/pack.mjs` | builds the Windows package (`npm run package`) with every third-party licence text |
-| `desktop/` | the desktop app: a small Tauri shell that starts the agent without a console window, shows its page in a window of its own and stops it with the window |
-| `tools/desktop.mjs` | builds the desktop app's setup (`npm run desktop`; needs Rust and the Tauri CLI: `npm i -D @tauri-apps/cli`, or `--tauri <its tauri.js>`) |
+| `desktop/` | The Tauri shell that starts the Agent, shows its page in a desktop window and stops it when the window closes. |
+| `tools/desktop.mjs` | Builds the desktop setup with `npm run desktop`. Requires Rust and the Tauri CLI (`npm i -D @tauri-apps/cli` or `--tauri <its tauri.js>`). |
 
 ```
 npm test
-node test/mock-server.mjs 8091        # a stand-in memory server; then: npm start
 ```
+
+## Attribution
+
+It is open source (MIT). It is DeepSeek Harness (dsh, the npm package `@deepseek-ai/dsh`, MIT) with its web app, plus a
+small forwarder that sends each turn to the memory instead of the whole conversation.
 
 ## Licence
 
@@ -102,4 +100,4 @@ Rulith Brain itself - the app and its engine - is a separate, closed-source prod
 
 ## Questions and problems
 
-Open an [issue](../../../issues), or write to contact@rulith.com.
+Report problems on [GitHub Issues](https://github.com/rulith-dev/rulith-brain/issues), or write to contact@rulith.com.

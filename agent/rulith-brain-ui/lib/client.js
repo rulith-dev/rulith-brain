@@ -117,7 +117,9 @@ window.__ModuleLoader__.load({
     function Foot({ wide }) {
       const entry = Memory({ wide }), credit = Credit({ wide });
       if (!entry && !credit) return null;
-      return h("div", { style: { display: "flex", flexDirection: "column", alignItems: "stretch", gap: 2, flex: "1 1 100%", width: "100%", minWidth: 0 } }, entry, credit);
+      const capacity = hasPanel && wide ? h("iframe", { src: PANEL + "/capacity?lang=" + (ZH ? "zh" : "en"),
+        title: ZH ? "记忆容量" : "Memory capacity", tabIndex: -1, style: { border: 0, width: "100%", height: 42 } }) : null;
+      return h("div", { style: { display: "flex", flexDirection: "column", alignItems: "stretch", gap: 2, flex: "1 1 100%", width: "100%", minWidth: 0 } }, entry, capacity, credit);
     }
     /** Once, for a newcomer: the Brain page opens by itself. Whether it did. */
     function introduce(doc, store) {
