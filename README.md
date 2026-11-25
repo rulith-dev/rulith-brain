@@ -131,8 +131,9 @@ later, and every update for your device and size.
   ([refund policy](https://rulith.ai/refund-policy.html)).
 - **New hardware.** Move the licence to your new device yourself, on the **Start** page: once per licence key.
   For another move, write to contact@rulith.ai.
-- **A larger size.** A larger size costs the difference between the two prices. Write to contact@rulith.ai with
-  your order number; you get a code that takes what you paid off the larger size.
+- **A larger size.** A larger size costs only the difference between the two prices: in the app, on the Start
+  page, choose Upgrade, enter your licence key and pay the difference. Your key stays the same and gets the larger
+  size as soon as the payment is done.
 
 ## Questions
 
