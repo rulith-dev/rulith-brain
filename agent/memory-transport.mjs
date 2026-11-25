@@ -30,6 +30,8 @@
 // (what the agent opened with web_fetch) go to the memory's learn queue, each once; nothing waits for that. Draft 2
 // only: on a 1.0 server the pages reach the brain as the tool results they are, and its learn queue is the app's.
 import http from 'node:http';
+import { readFile, realpath } from 'node:fs/promises';
+import path from 'node:path';
 import { MemoryTransport, MemoryError, errorFrom, takeExcerpts } from './brain-core.mjs';
 import { ResearchLearner } from './research-learn.mjs';
 import { localCapacity, capacityText } from './capacity.mjs';
@@ -109,17 +111,40 @@ export async function waitForServer({ server, headers = {}, fetch: f = globalThi
 const PASS = ['x-memory-turn', 'x-memory-focus', 'x-brain-append', 'x-memory-recall'];
 const NAME = { 'x-memory-turn': 'X-Memory-Turn', 'x-memory-focus': 'X-Memory-Focus', 'x-brain-append': 'X-Brain-Append', 'x-memory-recall': 'X-Memory-Recall' };
 
+// The marker is untrusted page text. Check the path before touching it (including network paths),
+// then check its real location and both visible ends against the file dsh saved.
+async function readSpill(root, { file, head, tail, omitted }) {
+  // dsh-spill-local writes one file per result in session-<hash>, with a random prefix and an encoded tool name.
+  const spillFile = /^session-[0-9a-f]{12}[\\/][0-9a-f]{12}-[A-Za-z0-9._~-]+\.txt$/;
+  if (!path.isAbsolute(file) || !spillFile.test(path.relative(root, file))) return null;
+  try {
+    const target = await realpath(file);
+    if (!spillFile.test(path.relative(root, target))) return null;
+    const full = await readFile(target, 'utf8');
+    if (Buffer.byteLength(full) !== Buffer.byteLength(head) + omitted + Buffer.byteLength(tail)) return null;
+    if (full.startsWith(head) && full.endsWith(tail)) return full;
+    // The original text can itself contain a paragraph saying "[...]". Find a gap with both ends intact.
+    const gap = '\n\n[...]\n\n';
+    const visible = head + gap + tail;
+    let suffix = visible.length;
+    while (suffix && visible[suffix - 1] === full[full.length - visible.length + suffix - 1]) suffix--;
+    const at = visible.indexOf(gap, Math.max(0, suffix - gap.length));
+    return at >= 0 && full.startsWith(visible.slice(0, at)) ? full : null;
+  } catch { return null; }   // a spill may have expired
+}
+
 /**
  * @param server - the memory server.
  * @param brain - brain mode's settings (brain-core.mjs); { enabled: true } turns it on.
  * @param headers - sent to the server with every request (its API key).
  * @param panel - the HTML of GET /brain, when there is one.
+ * @param spillRoot - the canonical private directory given to dsh-spill-local at this start.
  * @param learn - learning from research: { research: the switch (default on), onChange({ research }) when the page
  *   changes it, limits (research-learn.mjs RESEARCH_DEFAULTS) }.
  * @param busyWaitMs - how long a turn waits for another conversation's answer, or for the model to load.
  * @returns { proxy, transport, learner }.
  */
-export function createMemoryProxy({ server, model = null, log = () => {}, fetch: f = globalThis.fetch, brain = {}, headers = {}, panel, learn = {},
+export function createMemoryProxy({ server, model = null, log = () => {}, fetch: f = globalThis.fetch, brain = {}, headers = {}, panel, learn = {}, spillRoot,
   busyWaitMs = AGENT_BUSY_WAIT_MS }) {
   // (a turn's sources are read once its answer has ended, and kept with the turn as excerpts: the page shows those,
   // never the same ids read again later against a memory that may have changed since - brain-core takeExcerpts)
@@ -127,6 +152,7 @@ export function createMemoryProxy({ server, model = null, log = () => {}, fetch:
   const transport = new MemoryTransport({ server, log, fetch: f, brain, headers, idPrefix: 'agent', busyWaitMs,
     onTurn: (entry) => { if (entry.ok && !transport.seen?.v1) void takeExcerpts(transport, entry).then((x) => { entry.excerpts = x; }); } });
   const learner = new ResearchLearner({ transport, log, research: learn.research !== false, onChange: learn.onChange, limits: learn.limits,
+    readSpill: (preview) => spillRoot ? readSpill(spillRoot, preview) : null,
     offered: () => transport.seen?.v1 !== true });
   // whether the server answered when it was last asked: { state: 'up' | 'loading' | 'down' | null, at }
   let reach = { state: null, at: null };

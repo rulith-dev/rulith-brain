@@ -12,7 +12,7 @@ later, open a fresh chat and ask, "We have a tighter budget now. Would you still
 Brain can use your earlier research, the reasons behind your decision, and your updated notes to help you
 reconsider without starting from scratch.
 
-**[Download Rulith Brain 0.2.0 for Windows](https://github.com/rulith-dev/rulith-brain/releases/latest)** -
+**[Download Rulith Brain 0.2.1 for Windows](https://github.com/rulith-dev/rulith-brain/releases/latest)** -
 free for 30 days, no payment details asked. Product page: [rulith.ai](https://rulith.ai/brain.html).
 
 ## What you get
@@ -47,7 +47,7 @@ never used first.
 
 ## Install and start
 
-1. Download `Rulith-Brain-Setup-0.2.0.exe` from
+1. Download `Rulith-Brain-Setup-0.2.1.exe` from
    [GitHub Releases](https://github.com/rulith-dev/rulith-brain/releases/latest) and run it. The setup includes
    the engine, installs for your Windows account without administrator rights, and the app checks the signature
    of each update before installing it. If Windows SmartScreen shows "Windows protected your PC", choose
@@ -65,8 +65,8 @@ same memory as Chat. It can search the web, read a page by its address and work 
 remembers; what it reads is there for your later conversations. Start Brain and load the model, then choose an
 Agent download from [GitHub Releases](https://github.com/rulith-dev/rulith-brain/releases/latest).
 
-- **Desktop app.** Run `Rulith-Brain-Agent-Setup-0.2.0.exe` and open Rulith Brain Agent from the Start menu.
-- **Portable version.** Unpack `rulith-brain-agent-0.2.0.zip` and run `start.cmd` to open the Agent in your browser.
+- **Desktop app.** Run `Rulith-Brain-Agent-Setup-0.2.1.exe` and open Rulith Brain Agent from the Start menu.
+- **Portable version.** Unpack `rulith-brain-agent-0.2.1.zip` and run `start.cmd` to open the Agent in your browser.
   The zip includes Node.js.
 
 The Agent source and instructions are in the [Agent README](agent/README.md).

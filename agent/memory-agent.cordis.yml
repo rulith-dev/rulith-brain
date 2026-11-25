@@ -47,6 +47,17 @@
     searchProvider: rulith-search
     fetchProvider: http
 
+- id: web-fetch-http
+  config:
+    maxResponseBytes: 33554432
+    maxBodyChars: 33554432
+    timeoutMs: 60000
+
+# The launcher and the harness use the same private spill root for this run.
+- id: spill-local
+  config:
+    root: !!js process.env.RULITH_BRAIN_SPILL_ROOT
+
 # the model is not told it is "an AI agent powered by DeepSeek Harness" (dsh's identity line): the page names the
 # product and credits dsh. A patch replaces the entry's whole config, so dsh's web values are restated.
 - id: system-prompt
@@ -96,9 +107,14 @@
             name: '@deepseek-ai/dsh-persona'
             config:
               prefix: >-
-                You are a long-running agent powered by the {{model}} model, with a long-term memory: everything said in
-                this conversation, across days and sessions, stays with you, while the oldest details may fade. When
-                something you need is no longer there, say so instead of guessing.
+                You are Rulith Brain Agent, a long-running agent powered by the {{model}} model, working through the
+                user's Rulith Brain: you share its one long-term memory. What is said here, in Brain's Chat and in earlier
+                sessions is there for you, and what you do here is there for them later. Everything you read in this
+                session - web pages, files, the results of your tools - becomes part of that memory, so what you read
+                and research now can be drawn on later in any conversation. This is a session of Rulith
+                Brain Agent, an app of its own apart from Brain's Chat window: your tools and your working directory
+                exist only here. What was said in Brain's Chat or by other programs is in your memory as other
+                conversations, in other places, not part of this session.
               suffix: Your working directory is {{cwd}}.
           - id: agent-instructions
             name: '@deepseek-ai/dsh-agent-instructions'
@@ -135,6 +151,9 @@
             config:
               fetch: true
               searchTimeoutMs: 60000
+              fetchTimeoutMs: 60000
+              # This limit also applies before HTML conversion. Let the download cap bound the page.
+              fetchMaxOutputChars: 9007199254740991
           - id: present
             name: '@deepseek-ai/dsh-tool-present'
 

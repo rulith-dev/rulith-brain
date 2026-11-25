@@ -115,7 +115,9 @@ try {
 
 // the forwarder dsh's model route points at: each request goes to the memory as one turn (its conversation ids start
 // with "agent"; a turn that meets the app's own chat being answered waits for it, up to 15 minutes)
-const { proxy } = createMemoryProxy({ server, model, log: (t) => console.log(t), headers,
+const { privateRoot } = await import('@deepseek-ai/dsh-spill-local');
+const spillRoot = fs.realpathSync(privateRoot());
+const { proxy } = createMemoryProxy({ server, model, log: (t) => console.log(t), headers, spillRoot,
   brain: { enabled: brainOn, front, focusK, focusEvery, persona, systemFrom },
   learn: { research: learnResearch, onChange: ({ research }) => saveSettings({ learnResearch: research }) },
   panel: fs.readFileSync(path.join(here, 'brain-panel.html'), 'utf8') });
@@ -137,6 +139,7 @@ const env = {
   ...process.env,
   ...viaProxy,
   DSH_HOME: home, DSH_TELEMETRY_MODE: 'DISABLED', DSH_TELEMETRY_DISABLED: '1',
+  RULITH_BRAIN_SPILL_ROOT: spillRoot,
   RULITH_MEMORY_SERVER: server, RULITH_MEMORY_BASE: base, RULITH_MEMORY_MODEL: model,
   // (11-24, the owner: the page said 100M under a 10M trial) what the page's context meter measures against
   RULITH_MEMORY_CONTEXT: String(capacityLimit(local) ?? 100000000),

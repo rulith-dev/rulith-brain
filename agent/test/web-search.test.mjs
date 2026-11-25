@@ -11,6 +11,26 @@ import { wikipediaSearch, searxngSearch, searchConfig, appSearchSettings, Search
 import { parseProxyServer, noProxy, proxyEnv } from '../system-proxy.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
+
+test('the memory preset renders the entire HTTP page before the spill policy bounds the turn', async () => {
+  const { parseDocument } = await import('yaml');
+  const { HttpFetchProvider } = await import('@deepseek-ai/dsh-web-fetch-http');
+  const { formatFetchOutput } = await import('@deepseek-ai/dsh-tool-web');
+  const rows = parseDocument(fs.readFileSync(path.join(HERE, '..', 'memory-agent.cordis.yml'), 'utf8')).toJS();
+  const http = rows.find((r) => r.id === 'web-fetch-http').config;
+  const preset = rows.flatMap((r) => r.insert ?? []).find((r) => r.id === 'preset-memory');
+  const web = preset.config.plugins.find((r) => r.id === 'tool-web').config;
+  assert.equal(http.maxResponseBytes, 32 << 20);
+  assert.ok(http.maxBodyChars >= http.maxResponseBytes);
+  assert.deepEqual([http.timeoutMs, web.fetch, web.searchTimeoutMs, web.fetchTimeoutMs], [60000, true, 60000, 60000]);
+  assert.ok(web.fetchMaxOutputChars > http.maxResponseBytes);
+  assert.ok(!rows.some((r) => r.id === 'spill-policy'));
+  const html = '<html><body><!--' + 'x'.repeat(5_000_001) + '--><p>After the markup.</p></body></html>';
+  const url = new URL('https://example.org/page');
+  const page = await new HttpFetchProvider(http).readBody(new Response(html, { headers: { 'Content-Type': 'text/html' } }), url, new AbortController().signal);
+  assert.equal(page.truncated, false);
+  assert.ok(formatFetchOutput(page, web.fetchMaxOutputChars).endsWith('After the markup.'));
+});
 const answer = (found, status = 200) => ({ ok: status >= 200 && status < 300, status, json: async () => ({ query: { search: found } }) });
 const HIT = [{ title: 'Zen 5', snippet: 'a <span class="searchmatch">Zen</span> core &amp; more&#39;s' }, { title: 'AMD Ryzen (series)', snippet: '' }];
 
