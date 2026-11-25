@@ -39,8 +39,8 @@ supported at the time of purchase and the models later versions add; and the Sof
 The sizes are 10M, 50M, 200M and unlimited tokens of memory; rulith.ai says which of them are on sale. "Unlimited" means as large as your device can hold: it is
 bounded by your device's disk and memory.
 
-You may move to a larger size by paying the price difference. To do so, write to contact@rulith.ai with your licence
-key; you receive a code that takes what you paid off the price of the larger size.
+You may move to a larger size by paying the price difference, in the Software (Start page, Upgrade) with your
+licence key. The licence key then carries the larger size, including after a move under section 5.
 
 ## 5. Moving the licence to another device
 
