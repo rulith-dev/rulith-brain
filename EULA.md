@@ -1,7 +1,7 @@
 # Rulith Brain - End User Licence Agreement
 
 Licensor: Tengfei Xiao, an individual developer based in China ("the Licensor"). Contact: contact@rulith.ai.
-Licences are sold through rulith.ai; payments are processed by Creem, the merchant of record. Effective: 23 November 2026.
+Licences are sold through rulith.ai; payments are processed by Creem, the merchant of record. Effective: 25 November 2026.
 
 Copyright (c) 2026 Tengfei Xiao. All rights reserved.
 
