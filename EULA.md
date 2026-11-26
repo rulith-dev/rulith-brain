@@ -12,8 +12,8 @@ desktop app (with what its setup installs) and the Rulith Brain runtime. The par
 with their licences in THIRD-PARTY-NOTICES.md (among them code from Rulith Inference, under the MIT licence), stay
 under their own licences, which this agreement does not change.
 
-Rulith Brain Agent, the companion agent in this repository, is not part of the Software: it is open source under the
-MIT licence (its own LICENSE), and this agreement does not apply to it.
+Rulith Brain Agent, the companion agent published at github.com/rulith-dev/rulith-brain-agent, is not part of the
+Software: it is open source under the MIT licence (its own LICENSE), and this agreement does not apply to it.
 
 By installing or using the Software you accept this agreement. If you do not accept it, do not install or use the
 Software.

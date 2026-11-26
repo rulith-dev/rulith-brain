@@ -12,7 +12,7 @@ later, open a fresh chat and ask, "We have a tighter budget now. Would you still
 Brain can use your earlier research, the reasons behind your decision, and your updated notes to help you
 reconsider without starting from scratch.
 
-**[Download Rulith Brain 0.2.3 for Windows](https://github.com/rulith-dev/rulith-brain/releases/latest)** -
+**[Download Rulith Brain 0.2.4 for Windows](https://github.com/rulith-dev/rulith-brain/releases/latest)** -
 free for 30 days, no payment details asked. Product page: [rulith.ai](https://rulith.ai/brain.html).
 Already using [Rulith Inference](https://github.com/rulith-dev/rulith-inference)? Since 0.8.0 its **Brain** page runs
 Brain with the model you already have, and shares the licence and memories with this app.
@@ -49,7 +49,7 @@ never used first.
 
 ## Install and start
 
-1. Download `Rulith-Brain-Setup-0.2.3.exe` from
+1. Download `Rulith-Brain-Setup-0.2.4.exe` from
    [GitHub Releases](https://github.com/rulith-dev/rulith-brain/releases/latest) and run it. The setup includes
    the engine, installs for your Windows account without administrator rights, and the app checks the signature
    of each update before installing it. If Windows SmartScreen shows "Windows protected your PC", choose
@@ -62,22 +62,20 @@ never used first.
 
 ## Rulith Brain Agent
 
-The Agent is a free, open-source companion ([MIT licence](agent/LICENSE)) that uses the same local model and the
-same memory as Chat. It can search the web, read a page by its address and work on a task with what Brain
-remembers; what it reads is there for your later conversations. Start Brain and load the model, then choose an
-Agent download from [GitHub Releases](https://github.com/rulith-dev/rulith-brain/releases/latest).
-
-- **Desktop app.** Run `Rulith-Brain-Agent-Setup-0.2.3.exe` and open Rulith Brain Agent from the Start menu.
-- **Portable version.** Unpack `rulith-brain-agent-0.2.3.zip` and run `start.cmd` to open the Agent in your browser.
-  The zip includes Node.js.
-
-The Agent source and instructions are in the [Agent README](agent/README.md).
+The Agent is a free, open-source companion (MIT licence) that uses the same model and the same memory as Chat. It
+can search the web, read a page by its address and work on a task with what Brain remembers; what it reads is there
+for your later conversations. It runs on the same PC as Brain or on another one that can reach it. The Agent has a
+repository of its own, with its source, instructions and downloads:
+**[rulith-dev/rulith-brain-agent](https://github.com/rulith-dev/rulith-brain-agent)** - get the desktop app or the
+portable version from its [releases](https://github.com/rulith-dev/rulith-brain-agent/releases/latest). The desktop
+app updates itself.
 
 ## Use Brain from your own programs
 
 While Brain runs, programs on the same PC can speak to it at `http://127.0.0.1:8091` (the **Start** page shows the
-address), and the same memory serves them. No API key is needed. There are two ways in, each with a path of its
-own:
+address), and the same memory serves them. No API key is needed. Under **Settings > Network** you can choose another
+port, or let other devices on your local network use Brain: they then send the access key Brain generates for you as
+`Authorization: Bearer <key>`. There are two ways in, each with a path of its own:
 
 - **Rulith Memory Protocol 1.0** - `POST /v1/brain/chat/completions`. Brain's own protocol: a program sends only
   what is new, and Brain has the rest. The request has the shape of an OpenAI chat request, so a client library
@@ -152,8 +150,8 @@ later, and every update for your device and size.
 ## Licence and support
 
 The app and its engine are covered by the [end user licence agreement](EULA.md); paid licences also by the
-[terms of sale](https://rulith.ai/brain-terms-of-sale.html). The Agent is open source under the
-[MIT licence](agent/LICENSE). Bundled components are listed in the [third-party notices](THIRD-PARTY-NOTICES.md).
+[terms of sale](https://rulith.ai/brain-terms-of-sale.html). The Agent is open source under the MIT licence, in
+[its own repository](https://github.com/rulith-dev/rulith-brain-agent). Bundled components are listed in the [third-party notices](THIRD-PARTY-NOTICES.md).
 What the app sends and keeps is described in the [privacy notice](https://rulith.ai/privacy.html).
 
 Report problems on [GitHub Issues](https://github.com/rulith-dev/rulith-brain/issues) (never post a licence key).
