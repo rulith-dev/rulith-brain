@@ -12,7 +12,7 @@ later, open a fresh chat and ask, "We have a tighter budget now. Would you still
 Brain can use your earlier research, the reasons behind your decision, and your updated notes to help you
 reconsider without starting from scratch.
 
-**[Download Rulith Brain 0.2.6 for Windows](https://github.com/rulith-dev/rulith-brain/releases/latest)** -
+**[Download Rulith Brain 0.2.7 for Windows](https://github.com/rulith-dev/rulith-brain/releases/latest)** -
 free for 30 days, no payment details asked. Product page: [rulith.ai](https://rulith.ai/brain.html).
 Already using [Rulith Inference](https://github.com/rulith-dev/rulith-inference)? Since 0.8.0 its **Brain** page runs
 Brain with the model you already have, and shares the licence and memories with this app.
@@ -49,7 +49,7 @@ never used first.
 
 ## Install and start
 
-1. Download `Rulith-Brain-Setup-0.2.6.exe` from
+1. Download `Rulith-Brain-Setup-0.2.7.exe` from
    [GitHub Releases](https://github.com/rulith-dev/rulith-brain/releases/latest) and run it. The setup includes
    the engine, installs for your Windows account without administrator rights, and the app checks the signature
    of each update before installing it. If Windows SmartScreen shows "Windows protected your PC", choose
